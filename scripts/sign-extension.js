@@ -36,7 +36,12 @@ const files = fs.readdirSync(outputDir).filter(name => name.endsWith('.xpi'));
 if (files.length !== 1) stop('Signing did not produce exactly one XPI; no artifact selected.');
 const source = path.join(outputDir, files[0]);
 const checked = spawnSync('python3', ['scripts/verify-xpi.py', source, '--require-signature'], {encoding:'utf8'});
-if (checked.status !== 0) stop('Signed artifact failed source/identity/signature-structure verification.');
+if (checked.status !== 0) {
+  // This local verifier has no credentials; only report its fixed-format error.
+  const reason = (checked.stderr || '').match(/^Artifact verification failed: ([^\r\n]{1,240})/m);
+  stop(reason ? 'Signed artifact failed verification: ' + reason[1]
+    : 'Signed artifact failed source/identity/signature-structure verification.');
+}
 const manifest = JSON.parse(fs.readFileSync('extension/manifest.json', 'utf8'));
 const bytes = fs.readFileSync(source);
 const target = path.join(root, 'artifacts', 'kasm-agent-signed.xpi');
