@@ -35,7 +35,12 @@ def verify(path, source, require_signature=False, metadata=None):
         if payload_names != set(expected):
             raise ValueError('XPI files differ from the source file set.')
         for name, content in expected.items():
-            if archive.read(name) != content:
+            # AMO normalizes manifest JSON whitespace while signing.
+            # Every executable asset remains byte-for-byte source-identical.
+            if name == 'manifest.json':
+                if json.loads(archive.read(name)) != json.loads(content):
+                    raise ValueError('Signed manifest semantics differ from the reviewed source.')
+            elif archive.read(name) != content:
                 raise ValueError('XPI payload differs from the reviewed source.')
         manifest = json.loads(archive.read('manifest.json'))
         settings = manifest.get('browser_specific_settings', {}).get('gecko', {})

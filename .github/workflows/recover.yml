@@ -2,8 +2,11 @@ name: Recover AMO unlisted signed version
 on:
   push:
     branches: ['sign/**']
+    paths-ignore:
+      - 'artifacts/kasm-agent-signed.xpi'
+      - 'artifacts/signed-artifact.json'
 permissions:
-  contents: read
+  contents: write
 concurrency:
   group: amo-recovery
   cancel-in-progress: false
@@ -26,6 +29,13 @@ jobs:
         env:
           AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
           AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+      - name: Commit verified signed XPI to signing branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f artifacts/kasm-agent-signed.xpi artifacts/signed-artifact.json
+          git diff --cached --quiet || git commit -m "Release verified Mozilla-signed Firefox extension"
+          git push origin HEAD:sign/amo-unlisted-20261123
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
