@@ -1,0 +1,1271 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Kasm Firefox Agent Driver",
+    "version": "0.1.0",
+    "description": "Server-to-server API for named Firefox containers. WebSocket, fixtures and health endpoints are private and are not part of this routed API. All commands require a separate API key. Browser Origin headers are refused."
+  },
+  "servers": [
+    {
+      "url": "/agent-driver/v1"
+    }
+  ],
+  "security": [
+    {
+      "DriverKey": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "DriverKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key"
+      }
+    },
+    "schemas": {
+      "Command": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "cmd": {
+                "const": "containers.ensure"
+              },
+              "id": {
+                "type": "string",
+                "maxLength": 100,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$",
+                "description": "Unique request ID; generated when omitted. Accepted IDs are retained for 15 minutes to reject replay."
+              },
+              "timeoutMs": {
+                "type": "integer",
+                "minimum": 100,
+                "maximum": 60000,
+                "default": 15000
+              },
+              "container": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Exact, unambiguous Firefox contextual-identity name."
+              },
+              "color": {
+                "type": "string",
+                "enum": [
+                  "blue",
+                  "turquoise",
+                  "green",
+                  "yellow",
+                  "orange",
+                  "red",
+                  "pink",
+                  "purple",
+                  "toolbar"
+                ]
+              },
+              "icon": {
+                "type": "string",
+                "enum": [
+                  "fingerprint",
+                  "briefcase",
+                  "dollar",
+                  "cart",
+                  "circle",
+                  "gift",
+                  "vacation",
+                  "food"
+                ]
+              }
+            },
+            "required": [
+              "cmd",
+              "container"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "cmd": {
+                "const": "containers.list"
+              },
+              "id": {
+                "type": "string",
+                "maxLength": 100,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$",
+                "description": "Unique request ID; generated when omitted. Accepted IDs are retained for 15 minutes to reject replay."
+              },
+              "timeoutMs": {
+                "type": "integer",
+                "minimum": 100,
+                "maximum": 60000,
+                "default": 15000
+              }
+            },
+            "required": [
+              "cmd"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "cmd": {
+                "const": "tabs.create"
+              },
+              "id": {
+                "type": "string",
+                "maxLength": 100,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$",
+                "description": "Unique request ID; generated when omitted. Accepted IDs are retained for 15 minutes to reject replay."
+              },
+              "timeoutMs": {
+                "type": "integer",
+                "minimum": 100,
+                "maximum": 60000,
+                "default": 15000
+              },
+              "container": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Exact, unambiguous Firefox contextual-identity name."
+              },
+              "url": {
+                "type": "string",
+                "format": "uri",
+                "maxLength": 8192,
+                "description": "Only https://chatgpt.com or http://driver:8080, without URL credentials."
+              },
+              "active": {
+                "type": "boolean",
+                "default": true
+              }
+            },
+            "required": [
+              "cmd",
+              "container",
+              "url"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "cmd": {
+                "const": "tabs.navigate"
+              },
+              "id": {
+                "type": "string",
+                "maxLength": 100,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$",
+                "description": "Unique request ID; generated when omitted. Accepted IDs are retained for 15 minutes to reject replay."
+              },
+              "timeoutMs": {
+                "type": "integer",
+                "minimum": 100,
+                "maximum": 60000,
+                "default": 15000
+              },
+              "container": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Exact, unambiguous Firefox contextual-identity name."
+              },
+              "tabId": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "url": {
+                "type": "string",
+                "format": "uri",
+                "maxLength": 8192,
+                "description": "Only https://chatgpt.com or http://driver:8080, without URL credentials."
+              }
+            },
+            "required": [
+              "cmd",
+              "container",
+              "tabId",
+              "url"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "cmd": {
+                "const": "tabs.close"
+              },
+              "id": {
+                "type": "string",
+                "maxLength": 100,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$",
+                "description": "Unique request ID; generated when omitted. Accepted IDs are retained for 15 minutes to reject replay."
+              },
+              "timeoutMs": {
+                "type": "integer",
+                "minimum": 100,
+                "maximum": 60000,
+                "default": 15000
+              },
+              "container": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Exact, unambiguous Firefox contextual-identity name."
+              },
+              "tabId": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "cmd",
+              "container",
+              "tabId"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "cmd": {
+                "const": "tabs.list"
+              },
+              "id": {
+                "type": "string",
+                "maxLength": 100,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$",
+                "description": "Unique request ID; generated when omitted. Accepted IDs are retained for 15 minutes to reject replay."
+              },
+              "timeoutMs": {
+                "type": "integer",
+                "minimum": 100,
+                "maximum": 60000,
+                "default": 15000
+              },
+              "container": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Exact, unambiguous Firefox contextual-identity name."
+              }
+            },
+            "required": [
+              "cmd",
+              "container"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "cmd": {
+                "const": "tabs.readText"
+              },
+              "id": {
+                "type": "string",
+                "maxLength": 100,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$",
+                "description": "Unique request ID; generated when omitted. Accepted IDs are retained for 15 minutes to reject replay."
+              },
+              "timeoutMs": {
+                "type": "integer",
+                "minimum": 100,
+                "maximum": 60000,
+                "default": 15000
+              },
+              "container": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Exact, unambiguous Firefox contextual-identity name."
+              },
+              "tabId": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "selector": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000,
+                "description": "Standard CSS selector; actions require exactly one match."
+              },
+              "maxLength": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 120000,
+                "default": 120000
+              }
+            },
+            "required": [
+              "cmd",
+              "container",
+              "tabId"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "cmd": {
+                "const": "tabs.eval"
+              },
+              "id": {
+                "type": "string",
+                "maxLength": 100,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$",
+                "description": "Unique request ID; generated when omitted. Accepted IDs are retained for 15 minutes to reject replay."
+              },
+              "timeoutMs": {
+                "type": "integer",
+                "minimum": 100,
+                "maximum": 60000,
+                "default": 15000
+              },
+              "container": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Exact, unambiguous Firefox contextual-identity name."
+              },
+              "tabId": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "probe": {
+                "type": "string",
+                "enum": [
+                  "page",
+                  "elements",
+                  "storage"
+                ],
+                "description": "Packaged diagnostics only. No arbitrary JavaScript evaluation."
+              },
+              "selector": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000,
+                "description": "Standard CSS selector; actions require exactly one match."
+              }
+            },
+            "required": [
+              "cmd",
+              "container",
+              "tabId",
+              "probe"
+            ],
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "probe": {
+                      "const": "elements"
+                    }
+                  }
+                },
+                "then": {
+                  "required": [
+                    "selector"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "cmd": {
+                "const": "tabs.click"
+              },
+              "id": {
+                "type": "string",
+                "maxLength": 100,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$",
+                "description": "Unique request ID; generated when omitted. Accepted IDs are retained for 15 minutes to reject replay."
+              },
+              "timeoutMs": {
+                "type": "integer",
+                "minimum": 100,
+                "maximum": 60000,
+                "default": 15000
+              },
+              "container": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Exact, unambiguous Firefox contextual-identity name."
+              },
+              "tabId": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "selector": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000,
+                "description": "Standard CSS selector; actions require exactly one match."
+              }
+            },
+            "required": [
+              "cmd",
+              "container",
+              "tabId",
+              "selector"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "cmd": {
+                "const": "tabs.type"
+              },
+              "id": {
+                "type": "string",
+                "maxLength": 100,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$",
+                "description": "Unique request ID; generated when omitted. Accepted IDs are retained for 15 minutes to reject replay."
+              },
+              "timeoutMs": {
+                "type": "integer",
+                "minimum": 100,
+                "maximum": 60000,
+                "default": 15000
+              },
+              "container": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Exact, unambiguous Firefox contextual-identity name."
+              },
+              "tabId": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "selector": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000,
+                "description": "Standard CSS selector; actions require exactly one match."
+              },
+              "text": {
+                "type": "string",
+                "maxLength": 64000
+              },
+              "clear": {
+                "type": "boolean",
+                "default": true
+              }
+            },
+            "required": [
+              "cmd",
+              "container",
+              "tabId",
+              "text",
+              "selector"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "paths": {
+    "/status": {
+      "get": {
+        "summary": "Check extension readiness",
+        "responses": {
+          "200": {
+            "description": "Authenticated bridge state and extension version"
+          },
+          "401": {
+            "description": "Invalid or missing API key"
+          }
+        }
+      }
+    },
+    "/commands": {
+      "post": {
+        "summary": "Execute one browser command",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Command"
+              },
+              "example": {
+                "id": "ensure-1",
+                "cmd": "containers.ensure",
+                "container": "ChatGPT 1",
+                "color": "blue",
+                "icon": "fingerprint"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Command result or structured error. A timeout/disconnect after dispatch has an unknown browser outcome; inspect the page before issuing another mutation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "ok",
+                        "result"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "ok": {
+                          "const": true
+                        },
+                        "result": {}
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "ok",
+                        "error"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "ok": {
+                          "const": false
+                        },
+                        "error": {
+                          "type": "object",
+                          "required": [
+                            "code",
+                            "message"
+                          ],
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "message": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Command result or structured error. A timeout/disconnect after dispatch has an unknown browser outcome; inspect the page before issuing another mutation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "ok",
+                        "result"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "ok": {
+                          "const": true
+                        },
+                        "result": {}
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "ok",
+                        "error"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "ok": {
+                          "const": false
+                        },
+                        "error": {
+                          "type": "object",
+                          "required": [
+                            "code",
+                            "message"
+                          ],
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "message": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Command result or structured error. A timeout/disconnect after dispatch has an unknown browser outcome; inspect the page before issuing another mutation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "ok",
+                        "result"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "ok": {
+                          "const": true
+                        },
+                        "result": {}
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "ok",
+                        "error"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "ok": {
+                          "const": false
+                        },
+                        "error": {
+                          "type": "object",
+                          "required": [
+                            "code",
+                            "message"
+                          ],
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "message": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Command result or structured error. A timeout/disconnect after dispatch has an unknown browser outcome; inspect the page before issuing another mutation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "ok",
+                        "result"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "ok": {
+                          "const": true
+                        },
+                        "result": {}
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "ok",
+                        "error"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "ok": {
+                          "const": false
+                        },
+                        "error": {
+                          "type": "object",
+                          "required": [
+                            "code",
+                            "message"
+                          ],
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "message": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Command result or structured error. A timeout/disconnect after dispatch has an unknown browser outcome; inspect the page before issuing another mutation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "ok",
+                        "result"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "ok": {
+                          "const": true
+                        },
+                        "result": {}
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "ok",
+                        "error"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "ok": {
+                          "const": false
+                        },
+                        "error": {
+                          "type": "object",
+                          "required": [
+                            "code",
+                            "message"
+                          ],
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "message": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Command result or structured error. A timeout/disconnect after dispatch has an unknown browser outcome; inspect the page before issuing another mutation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "ok",
+                        "result"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "ok": {
+                          "const": true
+                        },
+                        "result": {}
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "ok",
+                        "error"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "ok": {
+                          "const": false
+                        },
+                        "error": {
+                          "type": "object",
+                          "required": [
+                            "code",
+                            "message"
+                          ],
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "message": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Command result or structured error. A timeout/disconnect after dispatch has an unknown browser outcome; inspect the page before issuing another mutation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "ok",
+                        "result"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "ok": {
+                          "const": true
+                        },
+                        "result": {}
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "ok",
+                        "error"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "ok": {
+                          "const": false
+                        },
+                        "error": {
+                          "type": "object",
+                          "required": [
+                            "code",
+                            "message"
+                          ],
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "message": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Command result or structured error. A timeout/disconnect after dispatch has an unknown browser outcome; inspect the page before issuing another mutation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "ok",
+                        "result"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "ok": {
+                          "const": true
+                        },
+                        "result": {}
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "ok",
+                        "error"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "ok": {
+                          "const": false
+                        },
+                        "error": {
+                          "type": "object",
+                          "required": [
+                            "code",
+                            "message"
+                          ],
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "message": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Command result or structured error. A timeout/disconnect after dispatch has an unknown browser outcome; inspect the page before issuing another mutation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "ok",
+                        "result"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "ok": {
+                          "const": true
+                        },
+                        "result": {}
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "ok",
+                        "error"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "ok": {
+                          "const": false
+                        },
+                        "error": {
+                          "type": "object",
+                          "required": [
+                            "code",
+                            "message"
+                          ],
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "message": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Command result or structured error. A timeout/disconnect after dispatch has an unknown browser outcome; inspect the page before issuing another mutation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "ok",
+                        "result"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "ok": {
+                          "const": true
+                        },
+                        "result": {}
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "ok",
+                        "error"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "ok": {
+                          "const": false
+                        },
+                        "error": {
+                          "type": "object",
+                          "required": [
+                            "code",
+                            "message"
+                          ],
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "message": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Command result or structured error. A timeout/disconnect after dispatch has an unknown browser outcome; inspect the page before issuing another mutation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "ok",
+                        "result"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "ok": {
+                          "const": true
+                        },
+                        "result": {}
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "ok",
+                        "error"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "ok": {
+                          "const": false
+                        },
+                        "error": {
+                          "type": "object",
+                          "required": [
+                            "code",
+                            "message"
+                          ],
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "message": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Command result or structured error. A timeout/disconnect after dispatch has an unknown browser outcome; inspect the page before issuing another mutation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "ok",
+                        "result"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "ok": {
+                          "const": true
+                        },
+                        "result": {}
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "ok",
+                        "error"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "ok": {
+                          "const": false
+                        },
+                        "error": {
+                          "type": "object",
+                          "required": [
+                            "code",
+                            "message"
+                          ],
+                          "properties": {
+                            "code": {
+                              "type": "string"
+                            },
+                            "message": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "summary": "Read this API definition",
+        "responses": {
+          "200": {
+            "description": "OpenAPI 3.1 document"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,39 @@
+name: Sign unlisted extension
+on:
+  workflow_dispatch:
+  push:
+    branches: ['sign/**']
+permissions:
+  contents: read
+concurrency:
+  group: amo-signing
+  cancel-in-progress: false
+jobs:
+  sign:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: amo-signing
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24.22.3'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm test
+      - run: npm run lint:extension
+      - run: npm run build:extension
+      - run: npm run sign:extension
+        env:
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+      - run: npm run verify:signed
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: kasm-agent-signed
+          path: |
+            artifacts/kasm-agent-signed.xpi
+            artifacts/signed-artifact.json
+          if-no-files-found: error

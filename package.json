@@ -1,0 +1,27 @@
+{
+  "name": "kasm-firefox-agent-driver",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Container-aware Firefox WebExtension and private automation driver",
+  "engines": {
+    "node": ">=24.15.0 <25"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "lint:extension": "web-ext lint --source-dir extension --warnings-as-errors",
+    "build:extension": "web-ext build --source-dir extension --artifacts-dir artifacts --filename kasm-agent-unsigned.xpi --overwrite-dest",
+    "sign:extension": "node scripts/sign-extension.js",
+    "verify:signed": "python3 scripts/verify-xpi.py artifacts/kasm-agent-signed.xpi --require-signature --metadata artifacts/signed-artifact.json",
+    "check:compose": "python3 scripts/check-compose.py",
+    "start": "node driver/server.js",
+    "docs": "node scripts/serve-docs.js"
+  },
+  "dependencies": {
+    "ws": "8.23.0"
+  },
+  "devDependencies": {
+    "@scalar/api-reference": "1.82.1",
+    "jsdom": "31.0.1",
+    "web-ext": "10.8.0"
+  }
+}

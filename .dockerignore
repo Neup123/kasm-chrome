@@ -1,0 +1,13 @@
+.git
+node_modules
+private-evidence
+.env
+.env.*
+*.pem
+*.key
+*.log
+coverage
+tests
+artifacts/*
+!artifacts/kasm-agent-signed.xpi
+!artifacts/signed-artifact.json
