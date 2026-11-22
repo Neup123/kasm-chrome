@@ -1,6 +1,6 @@
 services:
   chrome:
-    image: kasmweb/chrome:latest
+    image: kasmweb/chrome:1.18.0-rolling-weekly
     environment:
       - VNC_PW=${VNC_PW}
     ports:
