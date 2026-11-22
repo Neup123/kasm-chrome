@@ -1,6 +1,6 @@
 services:
-  chrome:
-    image: kasmweb/chrome:1.18.0-rolling-weekly
+  firefox:
+    image: kasmweb/firefox:1.18.0-rolling-weekly
     environment:
       - VNC_PW=${VNC_PW}
     ports:
@@ -12,10 +12,10 @@ services:
     shm_size: 512mb
     restart: unless-stopped
     labels:
-      - traefik.http.routers.https-0-cb8maubp3o7osivvwyewzair-chrome-5548.middlewares=gzip@file,authelia@file,kasm-auth@file
-      - traefik.http.services.https-0-cb8maubp3o7osivvwyewzair-chrome-5548.loadbalancer.server.scheme=https
-      - traefik.http.services.https-0-cb8maubp3o7osivvwyewzair-chrome-5548.loadbalancer.serverstransport=kasm-insecure@file
-      - traefik.http.services.http-0-cb8maubp3o7osivvwyewzair-chrome-5548.loadbalancer.server.scheme=https
-      - traefik.http.services.http-0-cb8maubp3o7osivvwyewzair-chrome-5548.loadbalancer.serverstransport=kasm-insecure@file
+      - traefik.http.routers.https-0-cb8maubp3o7osivvwyewzair-firefox-d6a5.middlewares=gzip@file,authelia@file,kasm-auth@file
+      - traefik.http.services.https-0-cb8maubp3o7osivvwyewzair-firefox-d6a5.loadbalancer.server.scheme=https
+      - traefik.http.services.https-0-cb8maubp3o7osivvwyewzair-firefox-d6a5.loadbalancer.serverstransport=kasm-insecure@file
+      - traefik.http.services.http-0-cb8maubp3o7osivvwyewzair-firefox-d6a5.loadbalancer.server.scheme=https
+      - traefik.http.services.http-0-cb8maubp3o7osivvwyewzair-firefox-d6a5.loadbalancer.serverstransport=kasm-insecure@file
 volumes:
   kasm-profile:
