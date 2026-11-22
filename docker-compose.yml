@@ -5,6 +5,8 @@ services:
       - VNC_PW=${VNC_PW}
     ports:
       - "6901:6901"
+    expose:
+      - "6901"
     volumes:
       - kasm-profile:/home/kasm-user
     shm_size: 512mb
