@@ -1,0 +1,37 @@
+name: Recover AMO unlisted signed version
+on:
+  push:
+    branches: ['sign/**']
+permissions:
+  contents: read
+concurrency:
+  group: amo-recovery
+  cancel-in-progress: false
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    environment: amo-signing
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24.22.3'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm test
+      - run: npm run lint:extension
+      - run: node scripts/recover-signed.js
+        env:
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: recovered-amo-version
+          path: |
+            artifacts/kasm-agent-signed.xpi
+            artifacts/signed-artifact.json
+          retention-days: 5
+          if-no-files-found: ignore
