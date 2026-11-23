@@ -85,12 +85,12 @@ services:
 volumes:
   kasm-profile:
     external: true
-    name: ${KASM_PROFILE_VOLUME:?exact existing profile volume name required}
+    name: ${KASM_PROFILE_VOLUME}
 
 networks:
   kasm-existing:
     external: true
-    name: ${KASM_DOCKER_NETWORK:?exact existing Docker network name required}
+    name: ${KASM_DOCKER_NETWORK}
 
 # Native environment-backed Compose secrets: no secret bytes in this file,
 # policies.json, Docker build arguments, image layers, or the signed extension.

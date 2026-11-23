@@ -50,8 +50,27 @@ def labels(service: dict) -> dict[str, str]:
     return result
 
 
+EXTERNAL_RESOURCE_NAME = re.compile(
+    r"(?:[A-Za-z0-9][A-Za-z0-9_.-]*|\$\{[A-Za-z_][A-Za-z0-9_]*(?::-[A-Za-z0-9][A-Za-z0-9_.-]*)?\})"
+)
+
+
+def validate_external_resource_names(compose: dict) -> None:
+    """Enforce Coolify's external volume/network name validator on source YAML."""
+    for category in ("volumes", "networks"):
+        for resource_key, resource in compose.get(category, {}).items():
+            if isinstance(resource, dict) and resource.get("external") is True:
+                name = resource.get("name")
+                require(
+                    isinstance(name, str) and bool(EXTERNAL_RESOURCE_NAME.fullmatch(name)),
+                    f"Invalid external Docker Compose {category[:-1]} name for {resource_key}: "
+                    "only literal Docker names or ${NAME} / ${NAME:-default} are allowed",
+                )
+
+
 def validate(root: Path) -> None:
     compose = yaml.safe_load((root / "docker-compose.yml").read_text())
+    validate_external_resource_names(compose)
     require(set(compose["services"]) == {"firefox", "driver"}, "Expected exactly firefox and driver services")
     firefox = compose["services"]["firefox"]
     driver = compose["services"]["driver"]
@@ -72,10 +91,10 @@ def validate(root: Path) -> None:
 
     volume = compose["volumes"]["kasm-profile"]
     require(volume.get("external") is True, "Existing profile volume must be external to prevent recreation/deletion")
-    require(volume.get("name", "").startswith("${KASM_PROFILE_VOLUME:?"), "Exact existing profile volume is required")
+    require(volume.get("name") == "${KASM_PROFILE_VOLUME}", "Exact existing profile volume variable is required")
     network = compose["networks"]["kasm-existing"]
     require(network.get("external") is True, "Existing Docker network must remain external")
-    require(network.get("name", "").startswith("${KASM_DOCKER_NETWORK:?"), "Exact existing network is required")
+    require(network.get("name") == "${KASM_DOCKER_NETWORK}", "Exact existing network variable is required")
 
     secrets = compose.get("secrets", {})
     require(secrets == {
