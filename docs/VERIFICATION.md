@@ -5,6 +5,23 @@ Date: 2026-11-22. Release: 0.1.0.
 **Source and local behavior are tested. The extension is unsigned. No production
 deployment or live acceptance is claimed.**
 
+## Firefox runtime follow-up (2026-11-24)
+
+The old policy-installed Mozilla-signed XPI loaded in stock Firefox 160.0.1,
+but did not complete the driver hello. Bind the browser timers to their
+global receiver. Content-script bootstrap on the internal HTTP fixture also
+failed because `crypto.randomUUID` needs a secure context; the fix retains
+a 128-bit cryptographic document token with `crypto.getRandomValues`.
+
+The corrected source was temporarily installed for development in an isolated,
+real Firefox profile, with a loopback driver and synthetic data only.
+Observed: ready handshake, two named contexts with independent cookies and
+localStorage, placeholder type/click/readback, wrong-context rejection, and
+reconnection after restarting the driver. This did not start KasmVNC, use
+ChatGPT or verify Coolify, signatures for the changed source, proxy routing,
+or the deployment volume. Build and sign 0.1.1 via the existing AMO release
+workflow before promotion; 0.1.0 does not match these sources.
+
 ## Local evidence
 
 | Check | Result | Coverage |

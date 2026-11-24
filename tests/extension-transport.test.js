@@ -195,8 +195,8 @@ test('startup retries transient managed reads and synchronous socket initializat
   assert.equal(h.sockets.length, 1);
   h.sockets[0].open();
   assert.equal(h.connection.snapshot().state, 'connected');
-  assert.deepEqual(h.logs.filter(x => x.error === 'STARTUP_ATTEMPT_FAILED').map(x => [x.exceptionName, x.exceptionMessage]),
-    [['TypeError', 'Storage temporarily unavailable'], ['Error', 'Socket initialization failed']]);
+  assert.deepEqual(h.logs.filter(x => x.error === 'STARTUP_ATTEMPT_FAILED').map(x => x.stage),
+    ['managed-config', 'connection-init']);
   h.connection.stop();
 });
 
@@ -235,4 +235,45 @@ test('stopping during startup backoff cancels subsequent managed reads', async (
   assert.equal(reads, 1);
   assert.equal(h.connection.snapshot().state, 'stopped');
   assert.equal(h.pending.size, 0);
+});
+
+test('native browser timers retain their global receiver during socket startup and shutdown', async () => {
+  const fs = require('node:fs');
+  const vm = require('node:vm');
+  const realm = vm.createContext({ TextEncoder, URL });
+  vm.runInContext(`
+    let next = 0;
+    const outstanding = new Set();
+    function setTimeout() { if (this !== globalThis) throw new TypeError("Illegal invocation"); outstanding.add(++next); return next; }
+    function clearTimeout(id) { if (this !== globalThis) throw new TypeError("Illegal invocation"); outstanding.delete(id); }
+    globalThis.timerCount = () => outstanding.size;
+  `, realm);
+  vm.runInContext(fs.readFileSync(require.resolve('../extension/transport'), 'utf8'), realm);
+
+  class Socket {
+    static OPEN = 1;
+    static CLOSED = 3;
+    constructor() { Socket.latest = this; this.readyState = 0; }
+    send(message) { this.last = JSON.parse(message); }
+    close() { this.readyState = Socket.CLOSED; }
+  }
+  const connection = realm.KasmAgentTransport.createConnection({
+    browser: {
+      storage: { managed: { get: async () => ({ wsUrl: protocol.WS_URL, wsToken: 'x'.repeat(64) }) } },
+      runtime: { getManifest: () => ({ version: '0.1.0' }) }
+    },
+    protocol, safeError, WebSocketImpl: Socket, router: {}
+  });
+  try {
+    await connection.start();
+    assert.equal(connection.snapshot().state, 'connecting');
+    assert.equal(realm.timerCount(), 1);
+    Socket.latest.readyState = Socket.OPEN;
+    Socket.latest.onopen();
+    assert.equal(connection.snapshot().state, 'connected');
+    assert.equal(Socket.latest.last.type, 'hello');
+    assert.equal(realm.timerCount(), 0);
+  } finally {
+    connection.stop();
+  }
 });

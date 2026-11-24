@@ -194,7 +194,11 @@
     documentToken: globalThis.__KASM_AGENT_DOCUMENT__.binding.documentToken,
     url: window.location.href
   };
-  const binding = Object.freeze({ documentToken: crypto.randomUUID(), url: window.location.href });
+  // The private HTTP fixture is not a secure context in Firefox.
+  // getRandomValues is supported there and keeps a 128-bit per-document token.
+  const tokenBytes = crypto.getRandomValues(new Uint8Array(16));
+  const documentToken = Array.from(tokenBytes, byte => byte.toString(16).padStart(2, "0")).join("");
+  const binding = Object.freeze({ documentToken, url: window.location.href });
   const executor = createContentExecutor({ window, document, protocol: globalThis.KasmProtocol, extensionId: browser.runtime.id, documentToken: binding.documentToken });
   browser.runtime.onMessage.addListener(executor.handle);
   Object.defineProperty(globalThis, "__KASM_AGENT_DOCUMENT__", { value: { binding }, configurable: false });
