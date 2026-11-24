@@ -11,17 +11,26 @@
   "use strict";
 
   const TRANSITIONS = Object.freeze({
-    initializing: new Set(["connecting", "blocked", "stopped"]),
-    connecting: new Set(["connected", "waiting", "stopped"]),
+    initializing: new Set(["connecting", "waiting", "blocked", "stopped"]),
+    connecting: new Set(["connected", "waiting", "blocked", "stopped"]),
     connected: new Set(["waiting", "stopped"]),
-    waiting: new Set(["connecting", "stopped"]),
+    waiting: new Set(["initializing", "connecting", "stopped"]),
     blocked: new Set(),
     stopped: new Set()
   });
   const TERMINAL = new Set(["blocked", "stopped"]);
+  // Six startup attempts, with 30 seconds of total delay before exhaustion.
+  const STARTUP_RETRY_DELAYS = Object.freeze([1000, 2000, 4000, 8000, 15000]);
+
+  // Firefox Window methods require their native receiver. Storing bare
+  // references on the adapter makes timers.setTimeout() throw on first boot.
+  const BROWSER_TIMERS = Object.freeze({
+    setTimeout: (callback, delay) => globalThis.setTimeout(callback, delay),
+    clearTimeout: (id) => globalThis.clearTimeout(id)
+  });
 
   function createConnection({ browser, protocol, router, safeError, WebSocketImpl = WebSocket,
-    now = Date.now, random = Math.random, timers = { setTimeout, clearTimeout }, logger = () => {} }) {
+    now = Date.now, random = Math.random, timers = BROWSER_TIMERS, logger = () => {} }) {
     let state = "initializing";
     let socket = null;
     let retryTimer = null;
@@ -30,6 +39,7 @@
     let nextRetryAt = null;
     let config;
     let started = false;
+    let startupFailures = 0;
     const received = new Map();
     const encoder = new TextEncoder();
 
@@ -67,6 +77,32 @@
         retryTimer = null;
         nextRetryAt = null;
         if (state === "waiting") connect();
+      }, delay);
+    }
+
+    // Native exception text can contain a socket URL and its credential.
+    // Keep only fixed failure stages, never browser exception fields.
+    function scheduleStartupRetry(stage) {
+      if (TERMINAL.has(state)) return;
+      logger({ component: "extension", error: "STARTUP_ATTEMPT_FAILED", stage });
+      clearTimers();
+      invalidateSocket();
+      config = undefined;
+      const retryIndex = startupFailures++;
+      if (retryIndex >= STARTUP_RETRY_DELAYS.length) {
+        transition("blocked");
+        logger({ component: "extension", error: "STARTUP_RETRIES_EXHAUSTED" });
+        return;
+      }
+      transition("waiting");
+      const delay = STARTUP_RETRY_DELAYS[retryIndex];
+      nextRetryAt = now() + delay;
+      retryTimer = timers.setTimeout(() => {
+        retryTimer = null;
+        nextRetryAt = null;
+        if (state !== "waiting") return;
+        transition("initializing");
+        void tryStartup();
       }, delay);
     }
 
@@ -129,13 +165,17 @@
       }
     }
 
-    function connect() {
+    function connect({ startup = false } = {}) {
       transition("connecting");
       const url = new URL(config.wsUrl);
       url.searchParams.set("token", config.wsToken);
       let owner;
       try { owner = new WebSocketImpl(url.href); }
-      catch (_) { scheduleReconnect(); return; }
+      catch (error) {
+        if (startup) throw error;
+        scheduleReconnect();
+        return;
+      }
       socket = owner;
       connectTimer = timers.setTimeout(() => {
         if (socket === owner && state === "connecting") scheduleReconnect();
@@ -155,24 +195,31 @@
       owner.onerror = () => { if (socket === owner) scheduleReconnect(); };
     }
 
-    async function start() {
-      if (started) return snapshot();
-      started = true;
+    async function tryStartup() {
+      let stage = "managed-config";
       try {
         const managed = await browser.storage.managed.get(["wsUrl", "wsToken"]);
         if (state === "stopped") return snapshot();
-        if (managed.wsUrl !== protocol.WS_URL || !protocol.isValidSecret(managed.wsToken)) {
+        if (!managed || managed.wsUrl !== protocol.WS_URL || !protocol.isValidSecret(managed.wsToken)) {
           transition("blocked");
           logger({ component: "extension", error: "INVALID_MANAGED_CONFIG" });
           return snapshot();
         }
         config = { wsUrl: managed.wsUrl, wsToken: managed.wsToken };
-        connect();
+        // A synchronous connection-initialization failure also retries the
+        // managed read, rather than escaping as a mislabeled storage error.
+        stage = "connection-init";
+        connect({ startup: true });
       } catch (_) {
-        if (state === "initializing") transition("blocked");
-        logger({ component: "extension", error: "MANAGED_CONFIG_UNAVAILABLE" });
+        if (!TERMINAL.has(state)) scheduleStartupRetry(stage);
       }
       return snapshot();
+    }
+
+    async function start() {
+      if (started) return snapshot();
+      started = true;
+      return tryStartup();
     }
 
     function stop() {

@@ -4,10 +4,10 @@ Operate an existing Kasm Firefox browser through a private driver and a signed
 Manifest V2 companion extension. Named Firefox containers keep sessions apart
 inside the existing browser and persistent home volume.
 
-**Release status: source built and locally tested; signing and deployed
-acceptance are still pending.** Do not treat local tests as evidence of a
-working Kasm deployment. The production image deliberately cannot build without
-the AMO-signed artifact. See [verification](docs/VERIFICATION.md).
+**Release status:** Firefox runtime fixes have passed a local browser test.
+The new 0.1.1 source requires a matching AMO-signed extension before the
+Kasm image builds. The previous 0.1.0 XPI must not be reused. See
+[verification](docs/VERIFICATION.md) for the boundary of the local test.
 
 ## How it works
 

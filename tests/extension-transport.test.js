@@ -5,7 +5,7 @@ const protocol = require('../extension/protocol');
 const { safeError } = require('../extension/core');
 const { createConnection } = require('../extension/transport');
 
-function harness({ managed = { wsUrl: 'ws://driver:8080/ws', wsToken: 'x'.repeat(64) }, dispatch } = {}) {
+function harness({ managed = { wsUrl: 'ws://driver:8080/ws', wsToken: 'x'.repeat(64) }, dispatch, managedGet, socketInit } = {}) {
   let clock = 1000;
   let sequence = 0;
   const pending = new Map();
@@ -19,14 +19,14 @@ function harness({ managed = { wsUrl: 'ws://driver:8080/ws', wsToken: 'x'.repeat
   class Socket {
     static OPEN = 1;
     static CLOSED = 3;
-    constructor(url) { this.url = url; this.readyState = 0; this.messages = []; sockets.push(this); }
+    constructor(url) { socketInit?.(url); this.url = url; this.readyState = 0; this.messages = []; sockets.push(this); }
     open() { this.readyState = 1; this.onopen?.(); }
     send(value) { this.messages.push(JSON.parse(value)); }
     close() { this.readyState = 3; this.onclose?.(); }
     receive(value) { this.onmessage?.({ data: typeof value === 'string' ? value : JSON.stringify(value) }); }
   }
   const connection = createConnection({
-    browser: { storage: { managed: { get: async () => managed } }, runtime: { getManifest: () => ({ version: '0.1.0' }) } },
+    browser: { storage: { managed: { get: managedGet || (async () => managed) } }, runtime: { getManifest: () => ({ version: '0.1.0' }) } },
     protocol, safeError, WebSocketImpl: Socket, now: () => clock, random: () => 0.5, timers,
     logger: entry => logs.push(entry),
     router: { dispatch: async (request, options) => { commands.push(request); return dispatch ? dispatch(request, options) : { done: true }; } }
@@ -172,4 +172,108 @@ test('duplicate bookkeeping stays bounded even when all outstanding commands are
   h.connection.stop();
   for (const resolve of resolvers) resolve({ done: true });
   await h.settle();
+});
+
+test('startup retries transient managed reads and synchronous socket initialization failures', async () => {
+  let reads = 0;
+  let opens = 0;
+  const h = harness({
+    managedGet: async () => {
+      if (++reads === 1) throw new TypeError('Storage temporarily unavailable');
+      return { wsUrl: protocol.WS_URL, wsToken: 'x'.repeat(64) };
+    },
+    socketInit: () => {
+      if (++opens === 1) throw new Error('Socket initialization failed');
+    }
+  });
+  await h.connection.start();
+  assert.equal(h.connection.snapshot().state, 'waiting');
+  await h.advance(1000);
+  assert.equal(h.connection.snapshot().state, 'waiting');
+  await h.advance(2000);
+  assert.equal(reads, 3);
+  assert.equal(h.sockets.length, 1);
+  h.sockets[0].open();
+  assert.equal(h.connection.snapshot().state, 'connected');
+  assert.deepEqual(h.logs.filter(x => x.error === 'STARTUP_ATTEMPT_FAILED').map(x => x.stage),
+    ['managed-config', 'connection-init']);
+  h.connection.stop();
+});
+
+test('persistent startup exceptions block only after six attempts over thirty seconds', async () => {
+  for (const failConnect of [false, true]) {
+    let reads = 0;
+    const h = harness({
+      managedGet: async () => {
+        reads++;
+        if (!failConnect) throw new Error('Storage unavailable');
+        return { wsUrl: protocol.WS_URL, wsToken: 'x'.repeat(64) };
+      },
+      socketInit: url => { throw new Error('Cannot open ' + url); }
+    });
+    await h.connection.start();
+    for (const delay of [1000, 2000, 4000, 8000, 15000]) {
+      assert.equal(h.connection.snapshot().state, 'waiting');
+      await h.advance(delay);
+    }
+    assert.equal(reads, 6);
+    assert.equal(h.connection.snapshot().state, 'blocked');
+    assert.equal(h.pending.size, 0);
+    assert.equal(h.logs.filter(x => x.error === 'STARTUP_ATTEMPT_FAILED').length, 6);
+    assert.equal(h.logs.at(-1).error, 'STARTUP_RETRIES_EXHAUSTED');
+    assert.equal(JSON.stringify(h.logs).includes('x'.repeat(64)), false);
+    assert.equal(JSON.stringify(h.logs).includes('ws://'), false);
+  }
+});
+
+test('stopping during startup backoff cancels subsequent managed reads', async () => {
+  let reads = 0;
+  const h = harness({ managedGet: async () => { reads++; throw new Error('Unavailable'); } });
+  await h.connection.start();
+  h.connection.stop();
+  await h.advance(30000);
+  assert.equal(reads, 1);
+  assert.equal(h.connection.snapshot().state, 'stopped');
+  assert.equal(h.pending.size, 0);
+});
+
+test('native browser timers retain their global receiver during socket startup and shutdown', async () => {
+  const fs = require('node:fs');
+  const vm = require('node:vm');
+  const realm = vm.createContext({ TextEncoder, URL });
+  vm.runInContext(`
+    let next = 0;
+    const outstanding = new Set();
+    function setTimeout() { if (this !== globalThis) throw new TypeError("Illegal invocation"); outstanding.add(++next); return next; }
+    function clearTimeout(id) { if (this !== globalThis) throw new TypeError("Illegal invocation"); outstanding.delete(id); }
+    globalThis.timerCount = () => outstanding.size;
+  `, realm);
+  vm.runInContext(fs.readFileSync(require.resolve('../extension/transport'), 'utf8'), realm);
+
+  class Socket {
+    static OPEN = 1;
+    static CLOSED = 3;
+    constructor() { Socket.latest = this; this.readyState = 0; }
+    send(message) { this.last = JSON.parse(message); }
+    close() { this.readyState = Socket.CLOSED; }
+  }
+  const connection = realm.KasmAgentTransport.createConnection({
+    browser: {
+      storage: { managed: { get: async () => ({ wsUrl: protocol.WS_URL, wsToken: 'x'.repeat(64) }) } },
+      runtime: { getManifest: () => ({ version: '0.1.0' }) }
+    },
+    protocol, safeError, WebSocketImpl: Socket, router: {}
+  });
+  try {
+    await connection.start();
+    assert.equal(connection.snapshot().state, 'connecting');
+    assert.equal(realm.timerCount(), 1);
+    Socket.latest.readyState = Socket.OPEN;
+    Socket.latest.onopen();
+    assert.equal(connection.snapshot().state, 'connected');
+    assert.equal(Socket.latest.last.type, 'hello');
+    assert.equal(realm.timerCount(), 0);
+  } finally {
+    connection.stop();
+  }
 });

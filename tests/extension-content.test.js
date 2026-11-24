@@ -125,3 +125,30 @@ test('placeholder storage probe does not return cookies or unrelated data', asyn
   assert.deepEqual(JSON.parse(JSON.stringify(reply.result)), { localStorage: { kasm_probe: 'container-a' } });
   h.close();
 });
+
+test('content-script bootstrap supports internal HTTP and scopes its random binding to one document', () => {
+  const fs = require('node:fs');
+  const source = fs.readFileSync(require.resolve('../extension/content'), 'utf8');
+  const url = 'http://driver:8080/fixtures/session';
+  const createDocument = () => {
+    const dom = new JSDOM('<main>Fixture</main>', { url, runScripts: 'outside-only' });
+    const { window } = dom;
+    Object.defineProperty(window.crypto, 'randomUUID', { value: undefined });
+    window.KasmProtocol = protocol;
+    let listeners = 0;
+    window.browser = { runtime: { id: protocol.EXTENSION_ID, onMessage: { addListener: () => listeners++ } } };
+    return { window, listeners: () => listeners, close: () => window.close() };
+  };
+  const a = createDocument(), b = createDocument();
+  try {
+    const first = a.window.eval(source);
+    assert.equal(first.url, url);
+    assert.match(first.documentToken, /^[a-f0-9]{32}$/);
+    assert.equal(a.window.eval(source).documentToken, first.documentToken);
+    assert.equal(a.listeners(), 1);
+    assert.notEqual(b.window.eval(source).documentToken, first.documentToken);
+  } finally {
+    a.close();
+    b.close();
+  }
+});
