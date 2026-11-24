@@ -11,14 +11,16 @@
   "use strict";
 
   const TRANSITIONS = Object.freeze({
-    initializing: new Set(["connecting", "blocked", "stopped"]),
-    connecting: new Set(["connected", "waiting", "stopped"]),
+    initializing: new Set(["connecting", "waiting", "blocked", "stopped"]),
+    connecting: new Set(["connected", "waiting", "blocked", "stopped"]),
     connected: new Set(["waiting", "stopped"]),
-    waiting: new Set(["connecting", "stopped"]),
+    waiting: new Set(["initializing", "connecting", "stopped"]),
     blocked: new Set(),
     stopped: new Set()
   });
   const TERMINAL = new Set(["blocked", "stopped"]);
+  // Six startup attempts, with 30 seconds of total delay before exhaustion.
+  const STARTUP_RETRY_DELAYS = Object.freeze([1000, 2000, 4000, 8000, 15000]);
 
   function createConnection({ browser, protocol, router, safeError, WebSocketImpl = WebSocket,
     now = Date.now, random = Math.random, timers = { setTimeout, clearTimeout }, logger = () => {} }) {
@@ -30,6 +32,7 @@
     let nextRetryAt = null;
     let config;
     let started = false;
+    let startupFailures = 0;
     const received = new Map();
     const encoder = new TextEncoder();
 
@@ -67,6 +70,47 @@
         retryTimer = null;
         nextRetryAt = null;
         if (state === "waiting") connect();
+      }, delay);
+    }
+
+    // Log the exception's name and message, never the exception object/stack.
+    // Browser exceptions can embed socket URLs or credentials in their messages.
+    function startupException(error) {
+      const name = typeof error?.name === "string" && /^[A-Za-z][A-Za-z0-9.]{0,63}$/.test(error.name)
+        ? error.name : "Error";
+      const message = typeof error?.message === "string" ? error.message : "No exception message";
+      return {
+        exceptionName: name,
+        exceptionMessage: message
+          .replace(/\b(?:https?|wss?):\/\/[^\s"'<>]+/gi, "[redacted URL]")
+          .replace(/\b(?:wsToken|token|apiKey|secret|password)\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,;}]+)/gi, "[redacted credential]")
+          .replace(/[A-Za-z0-9_-]{43,}/g, "[redacted secret]")
+          .replace(/[\u0000-\u001f\u007f]/g, " ")
+          .slice(0, 240)
+      };
+    }
+
+    function scheduleStartupRetry(error) {
+      if (TERMINAL.has(state)) return;
+      logger({ component: "extension", error: "STARTUP_ATTEMPT_FAILED", ...startupException(error) });
+      clearTimers();
+      invalidateSocket();
+      config = undefined;
+      const retryIndex = startupFailures++;
+      if (retryIndex >= STARTUP_RETRY_DELAYS.length) {
+        transition("blocked");
+        logger({ component: "extension", error: "STARTUP_RETRIES_EXHAUSTED" });
+        return;
+      }
+      transition("waiting");
+      const delay = STARTUP_RETRY_DELAYS[retryIndex];
+      nextRetryAt = now() + delay;
+      retryTimer = timers.setTimeout(() => {
+        retryTimer = null;
+        nextRetryAt = null;
+        if (state !== "waiting") return;
+        transition("initializing");
+        void tryStartup();
       }, delay);
     }
 
@@ -129,13 +173,17 @@
       }
     }
 
-    function connect() {
+    function connect({ startup = false } = {}) {
       transition("connecting");
       const url = new URL(config.wsUrl);
       url.searchParams.set("token", config.wsToken);
       let owner;
       try { owner = new WebSocketImpl(url.href); }
-      catch (_) { scheduleReconnect(); return; }
+      catch (error) {
+        if (startup) throw error;
+        scheduleReconnect();
+        return;
+      }
       socket = owner;
       connectTimer = timers.setTimeout(() => {
         if (socket === owner && state === "connecting") scheduleReconnect();
@@ -155,24 +203,29 @@
       owner.onerror = () => { if (socket === owner) scheduleReconnect(); };
     }
 
-    async function start() {
-      if (started) return snapshot();
-      started = true;
+    async function tryStartup() {
       try {
         const managed = await browser.storage.managed.get(["wsUrl", "wsToken"]);
         if (state === "stopped") return snapshot();
-        if (managed.wsUrl !== protocol.WS_URL || !protocol.isValidSecret(managed.wsToken)) {
+        if (!managed || managed.wsUrl !== protocol.WS_URL || !protocol.isValidSecret(managed.wsToken)) {
           transition("blocked");
           logger({ component: "extension", error: "INVALID_MANAGED_CONFIG" });
           return snapshot();
         }
         config = { wsUrl: managed.wsUrl, wsToken: managed.wsToken };
-        connect();
-      } catch (_) {
-        if (state === "initializing") transition("blocked");
-        logger({ component: "extension", error: "MANAGED_CONFIG_UNAVAILABLE" });
+        // A synchronous connection-initialization failure also retries the
+        // managed read, rather than escaping as a mislabeled storage error.
+        connect({ startup: true });
+      } catch (error) {
+        if (!TERMINAL.has(state)) scheduleStartupRetry(error);
       }
       return snapshot();
+    }
+
+    async function start() {
+      if (started) return snapshot();
+      started = true;
+      return tryStartup();
     }
 
     function stop() {
