@@ -1,0 +1,42 @@
+# Isolated private ESR image; the production signed Dockerfile is unchanged.
+FROM node:24.22.3-bookworm-slim AS package
+WORKDIR /src
+COPY package.json package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY extension/ extension/
+RUN npm run build:extension
+
+FROM python:3.13-slim AS verify
+WORKDIR /verify
+COPY scripts/verify-xpi.py .
+COPY extension/ extension/
+COPY firefox/policies.json policies.json
+COPY --from=package /src/artifacts/kasm-agent-unsigned.xpi companion.xpi
+RUN python3 verify-xpi.py companion.xpi
+# Derive from the existing policy, not a second copy of the common settings.
+RUN python3 -c 'import json; p=json.load(open("policies.json")); p["policies"]["Preferences"]["xpinstall.signatures.required"]={"Value":False,"Status":"locked"}; p["policies"]["ExtensionSettings"]["*"]={"installation_mode":"blocked"}; open("policies-esr.json","w").write(json.dumps(p,indent=2)+"\n")'
+
+FROM kasmweb/firefox:1.18.0-rolling-weekly
+USER root
+# Official Mozilla DEB repository. Verify the signing key before trusting APT.
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl gnupg \
+    && install -d -m 0755 /etc/apt/keyrings \
+    && curl -fsSL https://packages.mozilla.org/apt/repo-signing-key.gpg -o /etc/apt/keyrings/kasm-mozilla.asc \
+    && test "$(gpg --batch --show-keys --with-colons /etc/apt/keyrings/kasm-mozilla.asc | awk -F: '$1=="fpr"{print $10;exit}')" = 35BAA0B33E9EB396F59CA838C0BA5CE6DC6315A3 \
+    && printf '%s\n' 'deb [signed-by=/etc/apt/keyrings/kasm-mozilla.asc] https://packages.mozilla.org/apt mozilla main' > /etc/apt/sources.list.d/kasm-mozilla.list \
+    && printf '%s\n' 'Package: firefox-esr' 'Pin: origin packages.mozilla.org' 'Pin-Priority: 1001' > /etc/apt/preferences.d/kasm-firefox-esr \
+    && apt-get update && apt-get install -y --no-install-recommends firefox-esr \
+    && firefox-esr --version | grep -i esr \
+    && rm -rf /var/lib/apt/lists/*
+# Keep Kasm's startup loop and VNC, selecting the ESR executable explicitly.
+RUN grep -qx 'START_COMMAND="firefox"' /dockerstartup/custom_startup.sh \
+    && grep -qx 'PGREP="firefox"' /dockerstartup/custom_startup.sh \
+    && sed -i 's/^START_COMMAND="firefox"$/START_COMMAND="firefox-esr"/;s/^PGREP="firefox"$/PGREP="firefox-esr"/' /dockerstartup/custom_startup.sh \
+    && install -d -m 0755 /etc/firefox/policies /usr/lib/mozilla/managed-storage /opt/kasm-driver \
+    && install -d -o 1000 -g 1000 -m 0700 /esr-profile
+COPY --from=verify /verify/policies-esr.json /etc/firefox/policies/policies.json
+COPY --from=verify /verify/companion.xpi /opt/kasm-driver/companion.xpi
+RUN chmod 0644 /etc/firefox/policies/policies.json /opt/kasm-driver/companion.xpi
+USER 1000
+# Explicit fresh profile; never point ESR at the existing release profile.
+ENV APP_ARGS="-profile /esr-profile"

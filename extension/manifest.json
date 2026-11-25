@@ -1,0 +1,30 @@
+{
+  "manifest_version": 2,
+  "name": "Kasm Container Agent",
+  "version": "0.1.1",
+  "description": "Enterprise-managed browser automation for ChatGPT tabs in named Firefox containers via a private local driver.",
+  "permissions": [
+    "contextualIdentities",
+    "cookies",
+    "storage",
+    "https://chatgpt.com/*",
+    "http://driver/*"
+  ],
+  "background": {
+    "scripts": ["protocol.js", "core.js", "transport.js", "background.js"],
+    "persistent": true
+  },
+  "content_security_policy": "default-src 'none'; script-src 'self'; object-src 'none'; connect-src ws://driver:8080; base-uri 'none'",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "kasm-agent@chabad.gr",
+      "strict_min_version": "140.0",
+      "data_collection_permissions": {
+        "required": ["websiteContent", "websiteActivity", "browsingActivity", "personalCommunications"]
+      }
+    },
+    "gecko_android": {
+      "strict_min_version": "142.0"
+    }
+  }
+}

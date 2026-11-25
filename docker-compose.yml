@@ -1,21 +1,102 @@
+# Deploy in Coolify raw Compose mode after the live preflight in docs/DEPLOYMENT.md.
+# Both external resource names must identify the already-existing resources.
 services:
   firefox:
-    image: kasmweb/firefox:1.18.0-rolling-weekly
+    build:
+      context: .
+      dockerfile: firefox/Dockerfile
+    image: kasm-agent-firefox:${DRIVER_IMAGE_TAG:?immutable release tag required}
     environment:
-      - VNC_PW=${VNC_PW}
+      VNC_PW: ${VNC_PW:?existing VNC secret required}
     ports:
       - "6901:6901"
     expose:
       - "6901"
     volumes:
       - kasm-profile:/home/kasm-user
+    secrets:
+      - source: driver_managed_storage
+        target: /usr/lib/mozilla/managed-storage/kasm-agent@chabad.gr.json
+        uid: "1000"
+        gid: "1000"
+        mode: 0400
     shm_size: 512mb
     restart: unless-stopped
+    networks:
+      - kasm-existing
     labels:
-      - traefik.http.routers.https-0-cb8maubp3o7osivvwyewzair-firefox-d6a5.middlewares=gzip@file,authelia@file,kasm-auth@file
-      - traefik.http.services.https-0-cb8maubp3o7osivvwyewzair-firefox-d6a5.loadbalancer.server.scheme=https
-      - traefik.http.services.https-0-cb8maubp3o7osivvwyewzair-firefox-d6a5.loadbalancer.serverstransport=kasm-insecure@file
-      - traefik.http.services.http-0-cb8maubp3o7osivvwyewzair-firefox-d6a5.loadbalancer.server.scheme=https
-      - traefik.http.services.http-0-cb8maubp3o7osivvwyewzair-firefox-d6a5.loadbalancer.serverstransport=kasm-insecure@file
+      - traefik.enable=true
+      - traefik.docker.network=${KASM_DOCKER_NETWORK:?existing Docker network required}
+      - traefik.http.routers.kasm-agent-browser.rule=Host(`${DRIVER_PUBLIC_HOST:?existing browser hostname required}`)
+      - traefik.http.routers.kasm-agent-browser.entrypoints=${TRAEFIK_HTTPS_ENTRYPOINT:?existing HTTPS entrypoint required}
+      - traefik.http.routers.kasm-agent-browser.priority=10000
+      - traefik.http.routers.kasm-agent-browser.tls=true
+      - traefik.http.routers.kasm-agent-browser.tls.certresolver=${TRAEFIK_CERTRESOLVER:?existing certificate resolver required}
+      - traefik.http.routers.kasm-agent-browser.middlewares=${BROWSER_AUTH_MIDDLEWARES:?existing Authelia and Kasm header middleware chain required}
+      - traefik.http.routers.kasm-agent-browser.service=kasm-agent-browser
+      - traefik.http.services.kasm-agent-browser.loadbalancer.server.port=6901
+      - traefik.http.services.kasm-agent-browser.loadbalancer.server.scheme=https
+      - traefik.http.services.kasm-agent-browser.loadbalancer.serverstransport=${BROWSER_SERVERSTRANSPORT:?existing Kasm TLS transport required}
+  driver:
+    build:
+      context: .
+      dockerfile: driver/Dockerfile
+    image: kasm-agent-driver:${DRIVER_IMAGE_TAG:?immutable release tag required}
+    environment:
+      NODE_ENV: production
+      PORT: "8080"
+      DRIVER_MANAGED_STORAGE_FILE: /run/secrets/driver_managed_storage
+      DRIVER_API_KEY_FILE: /run/secrets/driver_api_key
+    expose:
+      - "8080"
+    secrets:
+      - source: driver_managed_storage
+        target: driver_managed_storage
+        uid: "1000"
+        gid: "1000"
+        mode: 0400
+      - source: driver_api_key
+        target: driver_api_key
+        uid: "1000"
+        gid: "1000"
+        mode: 0400
+    user: "1000:1000"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    networks:
+      kasm-existing:
+        aliases:
+          - driver
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${KASM_DOCKER_NETWORK:?existing Docker network required}
+      - traefik.http.routers.kasm-agent-api.rule=Host(`${DRIVER_PUBLIC_HOST:?existing browser hostname required}`) && (Path(`/agent-driver/v1`) || PathPrefix(`/agent-driver/v1/`))
+      - traefik.http.routers.kasm-agent-api.entrypoints=${TRAEFIK_HTTPS_ENTRYPOINT:?existing HTTPS entrypoint required}
+      - traefik.http.routers.kasm-agent-api.priority=20000
+      - traefik.http.routers.kasm-agent-api.tls=true
+      - traefik.http.routers.kasm-agent-api.tls.certresolver=${TRAEFIK_CERTRESOLVER:?existing certificate resolver required}
+      - traefik.http.routers.kasm-agent-api.service=kasm-agent-api
+      - traefik.http.services.kasm-agent-api.loadbalancer.server.port=8080
+      - traefik.http.services.kasm-agent-api.loadbalancer.server.scheme=http
+
 volumes:
   kasm-profile:
+    external: true
+    name: ${KASM_PROFILE_VOLUME}
+
+networks:
+  kasm-existing:
+    external: true
+    name: ${KASM_DOCKER_NETWORK}
+
+# Native environment-backed Compose secrets: no secret bytes in this file,
+# policies.json, Docker build arguments, image layers, or the signed extension.
+# Coolify's vault-backed deployment environment must supply both values.
+secrets:
+  driver_managed_storage:
+    environment: DRIVER_MANAGED_STORAGE
+  driver_api_key:
+    environment: DRIVER_API_KEY

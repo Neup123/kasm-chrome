@@ -1,0 +1,15 @@
+node_modules/
+artifacts/*
+!artifacts/kasm-agent-signed.xpi
+!artifacts/signed-artifact.json
+private-evidence/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.log
+coverage/
+__pycache__/
+*.pyc
+
