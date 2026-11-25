@@ -28,3 +28,9 @@ until the smoke run is green and separate Coolify/Authelia and backup checks
 are complete. The Kasm base is a rolling tag; capture the tested image digest
 before any promotion. State machine implementation is unchanged; the smoke
 test exercises the existing API and state transitions.
+
+The fixture cookie is persistent for one hour (rather than a session cookie).
+The smoke test checks that both synthetic markers are committed to the mounted
+profile before the browser container is restarted. It then verifies that the
+original named container identities still exist and reads their cookie/storage
+values without recreating the identities or reseeding either marker.

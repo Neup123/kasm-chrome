@@ -107,7 +107,7 @@ are redacted even if accidentally used as a request ID.
 ## Placeholder fixture
 
 `http://driver:8080/fixtures/session?slot=A` sets a benign `kasm_probe=A`
-HttpOnly cookie and a matching `localStorage.kasm_probe`. `slot=B` sets B.
+persistent HttpOnly cookie (one-hour lifetime) and a matching `localStorage.kasm_probe`. `slot=B` sets B.
 Revisit `/fixtures/session` without `slot` to observe persisted state. The page
 shows the cookie session in its text and has textarea/contenteditable inputs
 plus a programmatic click target for local DOM verification. It never logs in

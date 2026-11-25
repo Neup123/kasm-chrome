@@ -339,7 +339,7 @@ function serveFixture(req, res, url, hosts) {
   const slot = url.searchParams.get('slot');
   if (slot !== null && slot !== 'A' && slot !== 'B') return json(res, 400, errorReply(null, 'INVALID_SLOT', 'Use fixture slot A or B.'));
   const cookie = /(?:^|;\s*)kasm_probe=([AB])(?:;|$)/.exec(req.headers.cookie || '')?.[1] || 'unset';
-  if (slot) headers['Set-Cookie'] = `kasm_probe=${slot}; Path=/fixtures; HttpOnly; SameSite=Strict`;
+  if (slot) headers['Set-Cookie'] = `kasm_probe=${slot}; Path=/fixtures; Max-Age=3600; HttpOnly; SameSite=Strict`;
   const body = `<!doctype html><html lang="en"><meta charset="utf-8"><title>Container isolation fixture</title>
 <main><h1>Container isolation fixture</h1><p>This page uses placeholder data only.</p>
 <p id="cookie">Cookie session: ${slot || cookie}</p><p id="storage">Local storage: pending</p>

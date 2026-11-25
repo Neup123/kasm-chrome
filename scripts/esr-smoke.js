@@ -41,10 +41,16 @@ async function main(){
   console.log('PASS: unsigned 0.1.1 policy install and live bridge');
   assert.equal((await request('/status',null,false)).status,401);
   console.log('PASS: API authentication');
-  const a=await command('containers.ensure',{container:'ESR test A'});
-  const b=await command('containers.ensure',{container:'ESR test B'});
-  assert.notEqual(a.cookieStoreId,b.cookieStoreId);
+  const identityPath='/tmp/esr-smoke-identities.json';
+  let a,b;
   if(process.argv.includes('--after-restart')){
+    const expected=JSON.parse(fs.readFileSync(identityPath,'utf8'));
+    const identities=await command('containers.list');
+    a=identities.find(x=>x.name==='ESR test A');
+    b=identities.find(x=>x.name==='ESR test B');
+    assert.ok(a&&b,'Named containers must survive restart; do not recreate them');
+    assert.deepEqual([a.cookieStoreId,b.cookieStoreId],expected,'Container identities must remain unchanged');
+    console.log('PASS: same named container identities after restart');
     const tabs=await command('tabs.create',{container:a.name,url:fixture});
     const tabsB=await command('tabs.create',{container:b.name,url:fixture});
     assert.match(await read(a.name,tabs.tabId,'Local storage: A'),/Cookie session: A/);
@@ -52,6 +58,10 @@ async function main(){
     console.log('PASS: persistent isolation after restart');
     return;
   }
+  a=await command('containers.ensure',{container:'ESR test A'});
+  b=await command('containers.ensure',{container:'ESR test B'});
+  assert.notEqual(a.cookieStoreId,b.cookieStoreId);
+  fs.writeFileSync(identityPath,JSON.stringify([a.cookieStoreId,b.cookieStoreId]));
   const ta=await command('tabs.create',{container:a.name,url:fixture+'?slot=A'});
   const tb=await command('tabs.create',{container:b.name,url:fixture+'?slot=B'});
   await read(a.name,ta.tabId,'Local storage: A');

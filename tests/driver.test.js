@@ -340,7 +340,7 @@ test('private placeholder fixture uses HttpOnly cookie and same-origin storage s
   assert.equal((await fetch(h.base + '/fixtures/session?slot=A')).status, 404);
   const first = await privateFetch('session?slot=A');
   assert.equal(first.status, 200);
-  assert.match(first.headers.get('set-cookie'), /kasm_probe=A;.*HttpOnly; SameSite=Strict/);
+  assert.match(first.headers.get('set-cookie'), /kasm_probe=A;.*Max-Age=3600; HttpOnly; SameSite=Strict/);
   assert.match(await first.text(), /Cookie session: A/);
   const persisted = await privateFetch('session', { Cookie: 'kasm_probe=B' });
   assert.match(await persisted.text(), /Cookie session: B/);
