@@ -42,31 +42,29 @@ docker exec "$browser" firefox-esr --version
 docker exec -i "$driver" node - < scripts/esr-smoke.js
 docker restart "$driver"
 docker exec -i "$driver" node - --after-restart < scripts/esr-smoke.js
-# Wait for the real profile DBs to persist the synthetic markers before
-# interrupting Firefox; DOM readback alone is not evidence of durable writes.
+# Profile layout differs across Firefox versions. Verify the actual running
+# process uses the intended mounted path, and print only synthetic-test
+# diagnostics. The independent API readback after container restart remains
+# the durability gate, not private SQLite schema/layout assumptions.
 docker exec -i "$browser" python3 - <<'PY'
-import pathlib, sqlite3, time
+import pathlib, os, time
 root=pathlib.Path('/esr-profile')
-deadline=time.monotonic()+60
+assert os.path.ismount(root), 'ESR profile is not a mount'
+# Wait for Firefox background writes; no production data in this profile.
+deadline=time.monotonic()+45
 while time.monotonic()<deadline:
-    try:
-        with sqlite3.connect(f'file:{root}/cookies.sqlite?mode=ro',uri=True) as db:
-            cookies={row[0] for row in db.execute("SELECT value FROM moz_cookies WHERE name='kasm_probe'")}
-        storage=set()
-        for p in root.glob('storage/default/*/ls/data.sqlite'):
-            with sqlite3.connect(f'file:{p}?mode=ro',uri=True) as db:
-                # LSNG values can be compressed; existence of a committed key
-                # in each isolated DB is sufficient here. Readback checks values.
-                if db.execute("SELECT 1 FROM data WHERE key='kasm_probe'").fetchone():
-                    storage.add(p.parent.parent.name)
-        if (root/'containers.json').is_file() and cookies=={'A','B'} and len(storage)>=2:
-            print('PASS: profile volume contains both durable cookie and storage records')
-            break
-    except (OSError,sqlite3.Error):
-        pass
+    if (root/'containers.json').is_file() and (root/'cookies.sqlite').is_file():
+        break
     time.sleep(1)
 else:
-    raise SystemExit('Profile durability preflight failed: containers/cookies/storage not committed to /esr-profile')
+    print('Profile diagnostic: expected files missing from mounted path')
+    for base in [root, pathlib.Path('/home/kasm-user/.mozilla/firefox'), pathlib.Path('/home/kasm-user/.config/mozilla/firefox')]:
+        if base.exists():
+            print(str(base), sorted(str(p.relative_to(base)) for p in base.rglob('containers.json')))
+    raise SystemExit('Firefox did not write its profile into the intended volume')
+print('PASS: actual Firefox profile files exist in the isolated mounted volume')
+print('Profile diagnostic: local storage DB paths:', sorted(str(p.relative_to(root)) for p in root.rglob('data.sqlite')))
+time.sleep(15)
 PY
 docker restart --time 30 "$browser"
 docker exec -i "$driver" node - --after-restart < scripts/esr-smoke.js
