@@ -3,7 +3,8 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const key = fs.readFileSync('/run/secrets/driver_api_key','utf8').trim();
-const base = 'http://127.0.0.1:8080/agent-driver/v1';
+const base = process.env.SMOKE_BASE || 'http://127.0.0.1:8080/agent-driver/v1';
+const variant = process.env.SMOKE_VARIANT === 'signed' ? 'signed' : 'unsigned';
 async function request(path, body, authenticated = true) {
   const headers = {'Content-Type':'application/json'};
   if (authenticated) headers['X-API-Key'] = key;
@@ -27,7 +28,7 @@ async function ready() {
   return until(async()=>{
     const r=await request('/status');
     return r.body.result?.bridge?.state==='ready'&&r.body.result.bridge.extensionVersion==='0.1.1';
-  },'policy-installed unsigned extension ready');
+  },'policy-installed '+variant+' extension ready');
 }
 const fixture='http://driver:8080/fixtures/session';
 async function read(container,tabId,marker) {
@@ -38,7 +39,7 @@ async function read(container,tabId,marker) {
 }
 async function main(){
   await ready();
-  console.log('PASS: unsigned 0.1.1 policy install and live bridge');
+  console.log('PASS: '+variant+' 0.1.1 policy install and live bridge');
   assert.equal((await request('/status',null,false)).status,401);
   console.log('PASS: API authentication');
   const identityPath='/tmp/esr-smoke-identities.json';
