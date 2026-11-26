@@ -246,7 +246,12 @@
       return el;
     }
     function geometryDescription(el) {
-      return {tag:el.tagName.toLowerCase(),role:el.getAttribute("role"),ariaLabel:(el.getAttribute("aria-label")||"").slice(0,300),
+      const tag=el.tagName.toLowerCase();
+      const explicit=el.getAttribute("role");
+      const implicit=tag==="button"?"button":tag==="a"&&el.hasAttribute("href")?"link":
+        tag==="textarea"?"textbox":tag==="select"?"combobox":tag==="summary"?"button":
+        tag==="input"?({checkbox:"checkbox",radio:"radio",range:"slider",button:"button",submit:"button",reset:"button",number:"spinbutton"}[el.type]||"textbox"):null;
+      return {tag,role:explicit||implicit,ariaLabel:(el.getAttribute("aria-label")||"").slice(0,300),
         text:textOf(el).trim().slice(0,300),rect:rectOf(el)};
     }
     function chainOf(el) {
@@ -267,7 +272,16 @@
       const selector='button,a[href],input:not([type="hidden"]),textarea,select,summary,[role="button"],[role="link"],[role="menuitem"],[role="menuitemcheckbox"],[role="menuitemradio"],[role="option"],[role="tab"],[role="checkbox"],[role="radio"],[role="switch"],[role="slider"],[role="textbox"],[tabindex],[contenteditable="true"],[contenteditable="plaintext-only"],[aria-haspopup]';
       const elements=[];
       let truncated=false;
-      for (const el of doc.querySelectorAll(selector)) {
+      // Include common role-less pointer/drag affordances, without emitting
+      // every descendant that merely inherits its parent's cursor.
+      let scanned=0;
+      for (const el of doc.querySelectorAll("*")) {
+        if (++scanned>10000) {truncated=true;break;}
+        const style=win.getComputedStyle(el);
+        if (style.pointerEvents==="none") continue;
+        const pointerCursor=/^(pointer|grab|grabbing|move|ew-resize|col-resize|ns-resize|row-resize)$/.test(style.cursor);
+        const custom=pointerCursor && (!el.parentElement || win.getComputedStyle(el.parentElement).cursor!==style.cursor);
+        if (!el.matches(selector) && !custom) continue;
         if (credentialAncestor(el) || !visible(el)) continue;
         const r=rectOf(el);
         if (r.width<=0 || r.height<=0 || r.right<=0 || r.bottom<=0 || r.left>=win.innerWidth || r.top>=win.innerHeight) continue;
@@ -285,7 +299,7 @@
       return target.dispatchEvent(new win.MouseEvent(type,{bubbles:true,composed:true,cancelable:true,clientX:x,clientY:y,
         button:0,buttons:down?1:0,detail:type==="click"?1:0,view:win}));
     }
-    function clickSequence(expected,x,y,message) {
+    function clickSequence(expected,x,y,message,openingEffect=null) {
       guard(message);
       const target=inspectedTarget(expected,x,y);
       // Honor a canceled pointerdown: browsers suppress compatibility mouse
@@ -304,6 +318,10 @@
         if (compatible && target.isConnected) mouse(target,"mouseup",x,y,false);
       }
       guard(message);
+      // Some menu primitives activate on pointerdown (and can hide the
+      // trigger behind a modal overlay). Do not send a second activation
+      // when the specifically expected popup has already appeared.
+      if (openingEffect && openingEffect()) return {dispatched:true,synthetic:true,x,y};
       if (inspectedTarget(expected,x,y)!==target) fail("POINT_TARGET_CHANGED","The hit target changed during pointer dispatch; inspect before retrying.");
       mouse(target,"click",x,y,false);
       return {dispatched:true,synthetic:true,x,y};
@@ -320,7 +338,7 @@
         fail("POINT_TARGET_CHANGED","The inspected element, ancestry, text or geometry changed; inspect again.");
       return clickSequence(target,request.x,request.y,message);
     }
-    function clickElementAt(element,message,rightEdge=false) {
+    function clickElementAt(element,message,rightEdge=false,openingEffect=null) {
       checkInteractable(element);
       const r=rectOf(element);
       const left=Math.max(0,r.left),right=Math.min(win.innerWidth,r.right);
@@ -329,7 +347,7 @@
       const x=rightEdge ? right-Math.min(5,(right-left)/2) : (left+right)/2;
       const y=(top+bottom)/2;
       inspectedTarget(element,x,y);
-      return clickSequence(element,x,y,message);
+      return clickSequence(element,x,y,message,openingEffect);
     }
 
     function effortGeometry(root, current, desired) {
@@ -362,7 +380,7 @@
       if (!previous) fail("EFFORT_CURRENT_UNKNOWN", "The composer does not identify its current Low, Medium, or High effort.");
       let popup = effortPopup();
       if (!popup) {
-        clickElementAt(trigger,message);
+        clickElementAt(trigger,message,false,effortPopup);
         popup = await waitFor(message, effortPopup, "EFFORT_PICKER_NOT_OPEN", "The effort popup did not open.");
       }
       const {el,y,from,to} = effortGeometry(popup, previous, request.effort);
@@ -370,39 +388,56 @@
       // then to the same target for pointermove/up; no browser-wide input.
       const target = inspectedTarget(el,from,y);
       inspectedTarget(el,to,y);
-      guard(message); pointer(target,"pointerdown",from,y,true);
+      guard(message);
+      let lastX=from;
+      const compatible=pointer(target,"pointerdown",from,y,true);
       try {
+        if (compatible && target.isConnected) mouse(target,"mousedown",from,y,true);
         for (let step=1; step<=4; step++) {
           guard(message);
           const x=from+(to-from)*step/4;
           inspectedTarget(el,x,y);
+          if (!target.isConnected) fail("POINT_TARGET_CHANGED","The drag target detached before completion.");
+          lastX=x;
           pointer(target,"pointermove",x,y,true);
+          if (compatible) mouse(target,"mousemove",x,y,true);
         }
-      } finally {
-        pointer(target,"pointerup",to,y,false);
+        guard(message);
+      } catch (error) {
+        pointer(target,"pointercancel",lastX,y,false);
+        if (compatible && target.isConnected) mouse(target,"mouseup",lastX,y,false);
+        throw error;
       }
+      pointer(target,"pointerup",lastX,y,false);
+      if (compatible && target.isConnected) mouse(target,"mouseup",lastX,y,false);
       await waitFor(message, () => {
         try { return effortLabel(effortButton()) === request.effort; } catch (_) { return false; }
       }, "EFFORT_NOT_APPLIED", "The composer label did not confirm the requested effort; inspect before retrying.");
       return {effort:request.effort, previous, changed:true, verified:true};
     }
-    function approval() {
-      const forms = matches(doc, "form").filter(form => matches(form, 'button[aria-label="Approval options"]').length);
+    function approval(expected=null) {
+      // On revalidation after opening the exact menu, an accessibility focus
+      // trap may mark the underlying alert/form aria-hidden. Re-read only the
+      // original connected nodes in that case; never select a different form.
+      const query=(root,selector)=>expected?Array.from(root.querySelectorAll(selector)):matches(root,selector);
+      const forms = expected?(expected.form.isConnected?[expected.form]:[]):matches(doc, "form").filter(form => matches(form, 'button[aria-label="Approval options"]').length);
       if (!forms.length) return null;
       const form = unique(forms,"APPROVAL_AMBIGUOUS","Multiple approval forms are open.");
-      const trigger = unique(matches(form,'button[aria-label="Approval options"]'),"APPROVAL_AMBIGUOUS","Approval options are ambiguous.");
+      const trigger = unique(query(form,'button[aria-label="Approval options"]'),"APPROVAL_AMBIGUOUS","Approval options are ambiguous.");
+      if (expected && trigger!==expected.trigger) fail("APPROVAL_CHANGED","The approval trigger changed before the grant.");
       // The alert and form are siblings, not a dialog role. Walk only their
       // local ancestors and require exactly one preceding visible alert.
       let root = form.parentElement;
       let alert;
       while (root && root !== doc.body) {
-        const candidates = matches(root,'[role="alert"]').filter(el => el.compareDocumentPosition(form) & win.Node.DOCUMENT_POSITION_FOLLOWING);
+        const candidates = query(root,'[role="alert"]').filter(el => el.compareDocumentPosition(form) & win.Node.DOCUMENT_POSITION_FOLLOWING);
         if (candidates.length > 1) fail("APPROVAL_AMBIGUOUS","Multiple preceding approval alerts matched.");
         if (candidates.length === 1) { alert = candidates[0]; break; }
         root = root.parentElement;
       }
       if (!alert) fail("APPROVAL_TEXT_NOT_FOUND","The approval form has no uniquely associated preceding alert.");
-      const leaves = Array.from(alert.querySelectorAll("*")).filter(el => !el.children.length && visible(el));
+      if (expected && alert!==expected.alert) fail("APPROVAL_CHANGED","The approval alert changed before the grant.");
+      const leaves = Array.from(alert.querySelectorAll("*")).filter(el => !el.children.length && (expected || visible(el)));
       const questionCandidates = leaves.filter(el => /^Allow ChatGPT to use .+\??$/i.test(normalized(textOf(el))));
       const q = questionCandidates.length === 1 ? questionCandidates[0] : (!alert.children.length && /^Allow ChatGPT to use .+\??$/i.test(normalized(textOf(alert))) ? alert : null);
       if (!q) fail("APPROVAL_TEXT_NOT_FOUND","The approval question could not be isolated.");
@@ -410,7 +445,7 @@
       const description = leaves.filter(el=>el!==q).map(el=>textOf(el).trim()).filter(Boolean).join("\n");
       if (!description) fail("APPROVAL_TEXT_NOT_FOUND","The approval description could not be isolated.");
       if (question.length + description.length > 16000) fail("APPROVAL_TEXT_TOO_LONG","Approval text exceeds the safe response limit.");
-      return {form,trigger,question,description};
+      return {form,trigger,alert,question,description};
     }
     async function approve(request,message) {
       chatOnly();
@@ -424,13 +459,13 @@
         fail("APPROVAL_SERVICE_MISMATCH","The open question does not match the explicitly requested service.");
       const menus = () => matches(doc,'[role="menu"][data-state="open"]');
       if (menus().length) fail("APPROVAL_MENU_ALREADY_OPEN","Inspect and close the existing menu before authorizing.");
-      clickElementAt(initial.trigger,message,true);
+      clickElementAt(initial.trigger,message,true,()=>menus().length===1);
       const menu = await waitFor(message, () => {
         const items = menus();
         if (items.length > 1) fail("APPROVAL_MENU_AMBIGUOUS","Multiple menus are open.");
         return items[0];
       },"APPROVAL_MENU_NOT_OPEN","Approval options did not open.");
-      const current = approval();
+      const current = approval(initial);
       if (!current || current.form !== initial.form || current.question !== question || current.description !== description)
         fail("APPROVAL_CHANGED","The approval prompt changed before the grant.");
       const items = matches(menu,'[role="menuitem"]');
@@ -440,7 +475,7 @@
           items.filter(item=>normalized(textOf(item)) === full).length !== 1)
         fail("APPROVAL_OPTION_NOT_VERIFIED","The full-conversation menu item was not verified. No grant was activated.");
       clickElementAt(items[1],message);
-      await waitFor(message, () => !initial.form.isConnected || !visible(initial.trigger), "APPROVAL_NOT_CONFIRMED",
+      await waitFor(message, () => !initial.form.isConnected || (!menus().length && !visible(initial.trigger)), "APPROVAL_NOT_CONFIRMED",
         "The grant was activated but the approval form did not disappear; inspect before retrying.");
       return {found:true,approved:true,scope:"conversation",question,description,service:request.service};
     }

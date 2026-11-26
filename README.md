@@ -233,7 +233,8 @@ signed 0.1.1 artifact remains historical and must not be used to build 0.1.2.
 
 These three commands are ChatGPT-only. Coordinates are CSS viewport pixels,
 not page-scroll offsets or screenshot/device pixels. The map returns up to 150
-visible enabled semantic controls (bounded labels/text and bounding rectangles);
+visible enabled semantic controls and common role-less pointer/drag affordances
+(bounded labels/text and bounding rectangles; scanning capped at 10,000 nodes);
 it reports truncation and is not a screenshot or guarantee of hitability.
 Role-less controls are reachable with point inspection.
 

@@ -165,15 +165,16 @@ function layout(h) {
   return set;
 }
 
-function approvalHarness(label='Allow GitHub for this conversation') {
+function approvalHarness(label='Allow GitHub for this conversation',onPointerDown=false) {
   const h=harness('<section><div role="alert"><strong>Allow ChatGPT to use GitHub?</strong><p>Read repository information.</p></div><form><button type="button" id="once">Allow once</button><button type="button" aria-label="Approval options">Options</button></form></section>');
   const place=layout(h);
   const trigger=h.document.querySelector('[aria-label="Approval options"]');
   place(h.document.querySelector('#once'),10,10,80,20);place(trigger,90,10,20,20);
   let once=0,full=0,opened=0;
   h.document.querySelector('#once').onclick=()=>once++;
-  trigger.onclick=e=>{
+  const open=e=>{
     if(e.clientX<103)return; // only the chevron end opens the menu
+    if(onPointerDown) e.preventDefault();
     opened++; const menu=h.document.createElement('div');menu.setAttribute('role','menu');menu.dataset.state='open';
     menu.innerHTML='<button role="menuitem">Allow once</button><button role="menuitem"></button>';
     menu.lastChild.textContent=label;
@@ -181,7 +182,10 @@ function approvalHarness(label='Allow GitHub for this conversation') {
     menu.lastChild.onclick=()=>{full++;h.document.querySelector('section').remove();menu.remove();};
     h.document.body.append(menu);
     place(menu.firstChild,80,40,100,20);place(menu.lastChild,80,60,100,20);
+    if(onPointerDown) h.document.querySelector('section').setAttribute('aria-hidden','true');
   };
+  if(onPointerDown) trigger.addEventListener('pointerdown',open);
+  trigger.addEventListener('click',open);
   return {...h,counts:()=>[once,full,opened]};
 }
 test('approval inspection is read-only and full conversation grant checks exact label',async()=>{
@@ -268,4 +272,18 @@ test('coordinate commands deny internal fixture and arbitrary code',async()=>{
   for(const [cmd,fields] of [['tabs.inspectAt',{x:1,y:1}],['tabs.clickAt',{x:1,y:1,inspectionId:'a'.repeat(32)}],['tabs.mapInteractive',{}]])
     assert.equal((await h.command(cmd,fields)).error.code,'URL_FORBIDDEN');
   h.close();
+});
+
+test('pointerdown-only menu with modal focus trap opens once and preserves exact approval binding',async()=>{
+  const h=approvalHarness('Allow GitHub for this conversation',true);
+  const r=await h.command('tabs.approve',{service:'GitHub'});
+  assert.equal(r.ok,true,JSON.stringify(r));assert.equal(r.result.approved,true);
+  assert.deepEqual(h.counts(),[0,1,1]);h.close();
+});
+test('interactive map includes role-less drag affordances, implicit roles and excludes credential/offscreen targets',async()=>{
+  const h=harness('<button>Button</button><div id="track" style="cursor:ew-resize">Track</div><input type="password"><button id="hidden" style="display:none">Hidden</button>');
+  const place=layout(h);
+  Array.from(h.document.body.children).forEach((el,i)=>place(el,10,10+i*30,100,20));
+  const r=await h.command('tabs.mapInteractive');
+  assert.equal(r.ok,true);assert.deepEqual(r.result.elements.map(e=>[e.role,e.text]),[['button','Button'],[null,'Track']]);h.close();
 });
