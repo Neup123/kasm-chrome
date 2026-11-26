@@ -2,6 +2,7 @@
 set -euo pipefail
 # Only run on a disposable CI Docker host, never the production host.
 : "${CI:?This smoke test is for disposable CI runners only}"
+version=$(python3 -c 'import json; print(json.load(open("extension/manifest.json"))["version"])')
 prefix="kasm-esr-${GITHUB_RUN_ID:-$$}-${GITHUB_RUN_ATTEMPT:-1}"
 network="$prefix-net"
 driver="$prefix-driver"
@@ -39,9 +40,9 @@ docker run -d --name "$browser" --network "$network" --shm-size=512m \
   --mount "type=bind,src=$tmp/managed,dst=/usr/lib/mozilla/managed-storage/kasm-agent@chabad.gr.json,readonly" \
   "$prefix-firefox"
 docker exec "$browser" firefox-esr --version
-docker exec -i "$driver" node - < scripts/esr-smoke.js
+docker exec -i "$driver" node - "$version" < scripts/esr-smoke.js
 docker restart "$driver"
-docker exec -i "$driver" node - --after-restart < scripts/esr-smoke.js
+docker exec -i "$driver" node - "$version" --after-restart < scripts/esr-smoke.js
 # Profile layout differs across Firefox versions. Verify the actual running
 # process uses the intended mounted path, and print only synthetic-test
 # diagnostics. The independent API readback after container restart remains
@@ -67,5 +68,5 @@ print('Profile diagnostic: local storage DB paths:', sorted(str(p.relative_to(ro
 time.sleep(15)
 PY
 docker restart --time 30 "$browser"
-docker exec -i "$driver" node - --after-restart < scripts/esr-smoke.js
+docker exec -i "$driver" node - "$version" --after-restart < scripts/esr-smoke.js
 echo 'PASS: Kasm ESR restart, bridge reconnect and isolated fixture persistence'

@@ -28,3 +28,15 @@ test('IDs, deadlines and timeouts reject invalid wire values', () => {
   const base={id:'list-1',cmd:'containers.list'};
   for(const change of [{id:'new\nline'},{id:'__bad'},{deadline:NaN},{timeoutMs:60001},{timeoutMs:99},{container:'ChatGPT 1'}]) assert.throws(()=>protocol.validateCommand({...base,...change}),protocol.ProtocolError);
 });
+
+test('conversation commands validate bounded explicit controls', () => {
+  const base={id:'new-command',container:'ChatGPT 1',tabId:11};
+  for(const effort of ['Low','Medium','High']) assert.equal(protocol.validateCommand({...base,cmd:'tabs.setEffort',effort}).effort,effort);
+  for(const effort of ['Pro','Extra High',undefined]) assert.throws(()=>protocol.validateCommand({...base,cmd:'tabs.setEffort',effort}));
+  assert.equal(protocol.validateCommand({...base,cmd:'tabs.approve',service:'GitHub'}).service,'GitHub');
+  assert.equal(protocol.validateCommand({...base,cmd:'tabs.approve'}).service,undefined);
+  for(const service of [' GitHub','GitHub\n','<script>',123]) assert.throws(()=>protocol.validateCommand({...base,cmd:'tabs.approve',service}));
+  for(const key of ['Escape','Enter','ArrowDown','Ctrl+Shift+M']) assert.equal(protocol.validateCommand({...base,cmd:'tabs.key',key}).key,key);
+  for(const key of ['F12','M','Ctrl+Ctrl+M','Ctrl+','Ctrl+evil','Ctrl+Shift+M+Enter']) assert.throws(()=>protocol.validateCommand({...base,cmd:'tabs.key',key}));
+  assert.throws(()=>protocol.validateCommand({...base,cmd:'tabs.approve',code:'anything'}));
+});

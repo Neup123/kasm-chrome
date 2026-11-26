@@ -128,3 +128,33 @@ The service uses Node's maintained HTTP implementation and the maintained
 [`ws` library](https://github.com/websockets/ws) for RFC6455 framing,
 authenticated `handleUpgrade` and native heartbeat support. No custom
 WebSocket framing or browser debugging protocol is implemented.
+
+### Conversation controls (0.1.2)
+ 
+All use the existing named container, tab ID, document token, deadline and replay
+guard. No automatic approval or retry occurs. `tabs.setEffort` and
+`tabs.approve` are restricted to https://chatgpt.com, not the fixture.
+ 
+- `tabs.setEffort`, `effort: "Low" | "Medium" | "High"`: locate the composer,
+  open the effort picker, drag the identified track and verify the composer
+  label. No Pro selection. Unknown or ambiguous markup, or a label that does
+  not change, fails explicitly.
+- `tabs.approve`: omit `service` for read-only inspection, returning
+  `found`, exact question and description text, and `approved:false`.
+  For a grant, explicitly supply the exact service name (e.g. `"GitHub"`).
+  The packaged action matches the question, opens the Approval options menu,
+  checks the second item's exact full-conversation label, and verifies that
+  the form disappears. It never activates Allow once, guesses a menu item, or
+  grants an unrequested service. A timeout after activation is an unknown
+  outcome; inspect before retrying. English UI wording is required.
+- `tabs.key`, `key: "Escape"`, `"Enter"`, `"ArrowDown"`, or
+  `"Ctrl+Shift+M"`: dispatch bounded synthetic keydown/keyup events on the
+  target document's focused element. These are not trusted native input,
+  cannot invoke browser-level shortcuts or guarantee default browser editing
+  or form submission. The result reports dispatch and default prevention,
+  not application acceptance. Password/file/credential inputs are excluded.
+ 
+The effort geometry and approval markup are based on reported UI observations
+and synthetic fixtures; no claim of real ChatGPT compatibility is made until
+a separately authorized, isolated account acceptance check. The existing
+signed 0.1.1 artifact remains historical and must not be used to build 0.1.2.

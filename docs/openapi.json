@@ -470,6 +470,135 @@
               "text",
               "selector"
             ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "cmd": {
+                "const": "tabs.setEffort"
+              },
+              "id": {
+                "type": "string",
+                "maxLength": 100,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$",
+                "description": "Unique request ID; generated when omitted. Accepted IDs are retained for 15 minutes to reject replay."
+              },
+              "timeoutMs": {
+                "type": "integer",
+                "minimum": 100,
+                "maximum": 60000,
+                "default": 15000
+              },
+              "container": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Exact, unambiguous Firefox contextual-identity name."
+              },
+              "tabId": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "effort": {
+                "type": "string",
+                "enum": [
+                  "Low",
+                  "Medium",
+                  "High"
+                ]
+              }
+            },
+            "required": [
+              "cmd",
+              "container",
+              "tabId",
+              "effort"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "cmd": {
+                "const": "tabs.approve"
+              },
+              "id": {
+                "type": "string",
+                "maxLength": 100,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$",
+                "description": "Unique request ID; generated when omitted. Accepted IDs are retained for 15 minutes to reject replay."
+              },
+              "timeoutMs": {
+                "type": "integer",
+                "minimum": 100,
+                "maximum": 60000,
+                "default": 15000
+              },
+              "container": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Exact, unambiguous Firefox contextual-identity name."
+              },
+              "tabId": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "service": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9 ._&-]{0,79}$",
+                "description": "Exact service name; omit for read-only approval inspection."
+              }
+            },
+            "required": [
+              "cmd",
+              "container",
+              "tabId"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "cmd": {
+                "const": "tabs.key"
+              },
+              "id": {
+                "type": "string",
+                "maxLength": 100,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$",
+                "description": "Unique request ID; generated when omitted. Accepted IDs are retained for 15 minutes to reject replay."
+              },
+              "timeoutMs": {
+                "type": "integer",
+                "minimum": 100,
+                "maximum": 60000,
+                "default": 15000
+              },
+              "container": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Exact, unambiguous Firefox contextual-identity name."
+              },
+              "tabId": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "key": {
+                "type": "string",
+                "maxLength": 64,
+                "pattern": "^(?:(?:Ctrl|Alt|Shift|Meta)\\+)*(?:Escape|Enter|ArrowUp|ArrowDown|ArrowLeft|ArrowRight|Tab|Backspace|Delete|Home|End|PageUp|PageDown|[A-Z0-9])$",
+                "description": "Named key or modified letter/digit; synthetic DOM events only."
+              }
+            },
+            "required": [
+              "cmd",
+              "container",
+              "tabId",
+              "key"
+            ]
           }
         ]
       }

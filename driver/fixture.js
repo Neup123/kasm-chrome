@@ -3,6 +3,7 @@
   const slot = new URLSearchParams(location.search).get('slot');
   if (slot === 'A' || slot === 'B') localStorage.setItem('kasm_probe', slot);
   document.getElementById('storage').textContent = `Local storage: ${localStorage.getItem('kasm_probe') || 'unset'}`;
+  document.addEventListener('keydown',event=>{ document.getElementById('events').textContent='Key event: '+event.key; });
   let inputEvents = 0;
   document.addEventListener('input', () => {
     document.getElementById('events').textContent = `Input events: ${++inputEvents}`;

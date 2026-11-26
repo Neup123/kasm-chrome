@@ -155,6 +155,9 @@
         case "tabs.eval":
         case "tabs.click":
         case "tabs.type":
+        case "tabs.setEffort":
+        case "tabs.approve":
+        case "tabs.key":
           return domCommand(request, identity, isCurrent);
         default:
           throw new AgentError("UNKNOWN_COMMAND", "The extension does not support this command.");

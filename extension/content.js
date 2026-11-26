@@ -158,6 +158,198 @@
       return { value: actual, length: actual.length, method };
     }
 
+
+    // ChatGPT-specific writes never run on the internal HTTP fixture.
+    function chatOnly() {
+      if (win.location.origin !== "https://chatgpt.com") fail("URL_FORBIDDEN", "This command is restricted to ChatGPT.");
+    }
+    const normalized = value => value.replace(/\s+/g, " ").trim();
+    const visible = element => {
+      try { checkInteractable(element); return true; } catch (_) { return false; }
+    };
+    const matches = (root, selector) => Array.from(root.querySelectorAll(selector)).filter(visible);
+    function unique(items, code, detail) {
+      if (items.length !== 1) fail(code, detail);
+      return items[0];
+    }
+    async function waitFor(message, lookup, code, detail) {
+      // Bound waits even when the caller requests the maximum transport timeout.
+      const until = Math.min(message.command.deadline, now() + 1800);
+      for (let attempt = 0; attempt < 36; attempt++) {
+        guard(message);
+        const value = lookup();
+        if (value) return value;
+        if (now() >= until) break;
+        await new Promise(resolve => win.setTimeout(resolve, 50));
+      }
+      fail(code, detail);
+    }
+    const effortLabel = button => {
+      const text = normalized(textOf(button) + " " + (button.getAttribute("aria-label") || ""));
+      const levels = protocol.EFFORTS.filter(level => new RegExp("\\b" + level + "\\b", "i").test(text));
+      return levels.length === 1 ? levels[0] : null;
+    };
+    function effortButton() {
+      const composer = doc.querySelector("#prompt-textarea");
+      const root = composer?.closest("form") || composer?.closest('[data-testid="composer"]');
+      if (!root) fail("EFFORT_COMPOSER_NOT_FOUND", "The ChatGPT composer could not be uniquely identified.");
+      const candidates = matches(root, "button").filter(button => {
+        const name = normalized((button.getAttribute("aria-label") || "") + " " + (button.getAttribute("data-testid") || "") + " " + textOf(button));
+        return /effort|thinking/i.test(name) && (effortLabel(button) || /effort/i.test(name));
+      });
+      // Some composers expose only the current level as the button's label.
+      const exact = candidates.length ? candidates : matches(root, "button").filter(button =>
+        protocol.EFFORTS.includes(normalized(textOf(button))) || protocol.EFFORTS.includes(button.getAttribute("aria-label")));
+      return unique(exact, "EFFORT_PICKER_NOT_UNIQUE", "No unique thinking-effort control was found in the composer.");
+    }
+    function effortPopup() {
+      const roots = matches(doc, '[data-state="open"],[role="dialog"],[role="menu"],[data-radix-popper-content-wrapper]');
+      const found = roots.filter(root => protocol.EFFORTS.every(level =>
+        Array.from(root.querySelectorAll("*")).some(el => !el.children.length && normalized(textOf(el)) === level && visible(el))));
+      const innermost = found.filter(root => !found.some(other => other !== root && root.contains(other)));
+      if (innermost.length > 1) fail("EFFORT_PICKER_AMBIGUOUS", "Multiple open effort pickers matched.");
+      return innermost[0];
+    }
+    function pointer(target, type, x, y, down) {
+      const EventClass = win.PointerEvent;
+      if (typeof EventClass !== "function") fail("POINTER_UNAVAILABLE", "This browser cannot dispatch packaged pointer events.");
+      target.dispatchEvent(new EventClass(type, {
+        bubbles: true, composed: true, cancelable: true, clientX: x, clientY: y,
+        pointerId: 1, pointerType: "mouse", isPrimary: true, button: 0, buttons: down ? 1 : 0
+      }));
+    }
+    function effortGeometry(root, current, desired) {
+      const labels = protocol.EFFORTS.map(level => unique(Array.from(root.querySelectorAll("*")).filter(el =>
+        !el.children.length && normalized(textOf(el)) === level && visible(el)), "EFFORT_TICKS_NOT_UNIQUE", "The three effort ticks were not uniquely identified."));
+      const rects = labels.map(el => el.getBoundingClientRect());
+      const xs = rects.map(r => r.left + r.width / 2);
+      if (!(xs[0] < xs[1] && xs[1] < xs[2])) fail("EFFORT_GEOMETRY_UNVERIFIED", "The three effort ticks do not form the expected horizontal sequence.");
+      const labelTop = Math.min(...rects.map(r => r.top));
+      // Track may have no slider role. Use a visible narrow horizontal track
+      // spanning the three labels, immediately above their row; refuse ties.
+      const candidates = matches(root, 'div,span,input[type="range"],[role="slider"]').map(el => ({el,r:el.getBoundingClientRect()}))
+        .filter(({r}) => r.width >= (xs[2] - xs[0]) * .8 && r.height > 0 && r.height <= 32 &&
+          r.left <= xs[0] + 12 && r.right >= xs[2] - 12 && r.bottom <= labelTop + 3 && labelTop - r.bottom <= 48);
+      candidates.sort((a,b) => (labelTop-a.r.bottom)-(labelTop-b.r.bottom) || a.r.height-b.r.height);
+      if (!candidates.length) fail("EFFORT_TRACK_NOT_FOUND", "No visible horizontal effort track matches the tick geometry.");
+      const {el, r} = candidates[0];
+      if (candidates.length > 1 && candidates[1].r.bottom === r.bottom && candidates[1].r.height === r.height &&
+        !el.contains(candidates[1].el) && !candidates[1].el.contains(el))
+        fail("EFFORT_TRACK_AMBIGUOUS", "Multiple unrelated tracks match the effort ticks.");
+      const index = level => protocol.EFFORTS.indexOf(level);
+      const tickX = level => Math.max(r.left + 1, Math.min(r.right - 1, xs[index(level)]));
+      return {el, y:r.top+r.height/2, from:tickX(current), to:tickX(desired)};
+    }
+    async function setEffort(request, message) {
+      chatOnly();
+      const trigger = effortButton();
+      const previous = effortLabel(trigger);
+      if (previous === request.effort) return {effort:previous, changed:false, verified:true};
+      if (!previous) fail("EFFORT_CURRENT_UNKNOWN", "The composer does not identify its current Low, Medium, or High effort.");
+      let popup = effortPopup();
+      if (!popup) {
+        guard(message); trigger.click();
+        popup = await waitFor(message, effortPopup, "EFFORT_PICKER_NOT_OPEN", "The effort popup did not open.");
+      }
+      const {el,y,from,to} = effortGeometry(popup, previous, request.effort);
+      // Dispatch to the actual hit-tested child (usually the draggable thumb),
+      // then to the same target for pointermove/up; no browser-wide input.
+      const hit = typeof doc.elementFromPoint === "function" ? doc.elementFromPoint(from,y) : el;
+      const target = hit && (hit === el || el.contains(hit)) ? hit : el;
+      checkInteractable(target);
+      guard(message); pointer(target,"pointerdown",from,y,true);
+      try {
+        for (let step=1; step<=4; step++) {
+          guard(message);
+          pointer(target,"pointermove",from+(to-from)*step/4,y,true);
+        }
+      } finally {
+        pointer(target,"pointerup",to,y,false);
+      }
+      await waitFor(message, () => {
+        try { return effortLabel(effortButton()) === request.effort; } catch (_) { return false; }
+      }, "EFFORT_NOT_APPLIED", "The composer label did not confirm the requested effort; inspect before retrying.");
+      return {effort:request.effort, previous, changed:true, verified:true};
+    }
+    function approval() {
+      const forms = matches(doc, "form").filter(form => matches(form, 'button[aria-label="Approval options"]').length);
+      if (!forms.length) return null;
+      const form = unique(forms,"APPROVAL_AMBIGUOUS","Multiple approval forms are open.");
+      const trigger = unique(matches(form,'button[aria-label="Approval options"]'),"APPROVAL_AMBIGUOUS","Approval options are ambiguous.");
+      // The alert and form are siblings, not a dialog role. Walk only their
+      // local ancestors and require exactly one preceding visible alert.
+      let root = form.parentElement;
+      let alert;
+      while (root && root !== doc.body) {
+        const candidates = matches(root,'[role="alert"]').filter(el => el.compareDocumentPosition(form) & win.Node.DOCUMENT_POSITION_FOLLOWING);
+        if (candidates.length > 1) fail("APPROVAL_AMBIGUOUS","Multiple preceding approval alerts matched.");
+        if (candidates.length === 1) { alert = candidates[0]; break; }
+        root = root.parentElement;
+      }
+      if (!alert) fail("APPROVAL_TEXT_NOT_FOUND","The approval form has no uniquely associated preceding alert.");
+      const leaves = Array.from(alert.querySelectorAll("*")).filter(el => !el.children.length && visible(el));
+      const questionCandidates = leaves.filter(el => /^Allow ChatGPT to use .+\??$/i.test(normalized(textOf(el))));
+      const q = questionCandidates.length === 1 ? questionCandidates[0] : (!alert.children.length && /^Allow ChatGPT to use .+\??$/i.test(normalized(textOf(alert))) ? alert : null);
+      if (!q) fail("APPROVAL_TEXT_NOT_FOUND","The approval question could not be isolated.");
+      const question = textOf(q).trim();
+      const description = leaves.filter(el=>el!==q).map(el=>textOf(el).trim()).filter(Boolean).join("\n");
+      if (!description) fail("APPROVAL_TEXT_NOT_FOUND","The approval description could not be isolated.");
+      if (question.length + description.length > 16000) fail("APPROVAL_TEXT_TOO_LONG","Approval text exceeds the safe response limit.");
+      return {form,trigger,question,description};
+    }
+    async function approve(request,message) {
+      chatOnly();
+      const initial = approval();
+      if (!initial) return {found:false,approved:false};
+      const {question,description} = initial;
+      // No service supplied: read the question, without opening or granting.
+      if (!request.service) return {found:true,approved:false,question,description};
+      const expected = "Allow ChatGPT to use " + request.service;
+      if (![expected,expected+"?"].includes(normalized(question)))
+        fail("APPROVAL_SERVICE_MISMATCH","The open question does not match the explicitly requested service.");
+      const menus = () => matches(doc,'[role="menu"][data-state="open"]');
+      if (menus().length) fail("APPROVAL_MENU_ALREADY_OPEN","Inspect and close the existing menu before authorizing.");
+      guard(message); initial.trigger.click();
+      const menu = await waitFor(message, () => {
+        const items = menus();
+        if (items.length > 1) fail("APPROVAL_MENU_AMBIGUOUS","Multiple menus are open.");
+        return items[0];
+      },"APPROVAL_MENU_NOT_OPEN","Approval options did not open.");
+      const current = approval();
+      if (!current || current.form !== initial.form || current.question !== question || current.description !== description)
+        fail("APPROVAL_CHANGED","The approval prompt changed before the grant.");
+      const items = matches(menu,'[role="menuitem"]');
+      const full = "Allow " + request.service + " for this conversation";
+      // The expected item is second, but its label must independently match.
+      if (items.length < 2 || normalized(textOf(items[1])) !== full ||
+          items.filter(item=>normalized(textOf(item)) === full).length !== 1)
+        fail("APPROVAL_OPTION_NOT_VERIFIED","The full-conversation menu item was not verified. No grant was activated.");
+      guard(message); items[1].click();
+      await waitFor(message, () => !initial.form.isConnected || !visible(initial.trigger), "APPROVAL_NOT_CONFIRMED",
+        "The grant was activated but the approval form did not disappear; inspect before retrying.");
+      return {found:true,approved:true,scope:"conversation",question,description,service:request.service};
+    }
+    function key(request,message) {
+      // The internal fixture is allowed only for synthetic key-event smoke
+      // tests; ChatGPT is the only external origin already permitted by guard.
+      const target = doc.activeElement || doc.body;
+      checkInteractable(target);
+      if (sensitiveField(target)) fail("CREDENTIAL_INPUT_FORBIDDEN","Credential inputs are outside keyboard scope.");
+      const parts = request.key.split("+");
+      const raw = parts.pop();
+      const letter = /^[A-Z]$/.test(raw);
+      const keyValue = letter && !parts.includes("Shift") ? raw.toLowerCase() : raw;
+      const code = letter ? "Key"+raw : /^[0-9]$/.test(raw) ? "Digit"+raw : raw;
+      const options = {key:keyValue,code,ctrlKey:parts.includes("Ctrl"),shiftKey:parts.includes("Shift"),
+        altKey:parts.includes("Alt"),metaKey:parts.includes("Meta"),bubbles:true,cancelable:true,composed:true};
+      guard(message);
+      const down = new win.KeyboardEvent("keydown",options);
+      const accepted = target.dispatchEvent(down);
+      // Always release on the same target; do not retarget after an event.
+      target.dispatchEvent(new win.KeyboardEvent("keyup",options));
+      return {dispatched:true,key:request.key,defaultPrevented:!accepted,synthetic:true};
+    }
+
     async function handle(message, sender) {
       if (message?.kind !== "kasm-agent-dom-v1") return undefined;
       if (sender?.id !== extensionId || sender.tab) {
@@ -172,6 +364,9 @@
           case "tabs.eval": result = probe(request); break;
           case "tabs.click": result = click(request, message); break;
           case "tabs.type": result = await type(request, message); break;
+          case "tabs.setEffort": result = await setEffort(request, message); break;
+          case "tabs.approve": result = await approve(request, message); break;
+          case "tabs.key": result = key(request, message); break;
           default: fail("UNKNOWN_DOM_COMMAND", "This command is not a packaged DOM operation.");
         }
         return { ok: true, result };
