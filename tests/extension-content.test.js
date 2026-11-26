@@ -153,17 +153,34 @@ test('content-script bootstrap supports internal HTTP and scopes its random bind
   }
 });
 
+
+function layout(h) {
+  const boxes=new Map();
+  h.window.PointerEvent=h.window.MouseEvent;
+  const set=(el,left,top,width,height)=>{
+    boxes.set(el,{left,top,width,height,right:left+width,bottom:top+height});
+    el.getBoundingClientRect=()=>boxes.get(el);
+  };
+  h.document.elementFromPoint=(x,y)=>Array.from(boxes).reverse().find(([el,r])=>el.isConnected&&x>=r.left&&x<r.right&&y>=r.top&&y<r.bottom)?.[0]||null;
+  return set;
+}
+
 function approvalHarness(label='Allow GitHub for this conversation') {
   const h=harness('<section><div role="alert"><strong>Allow ChatGPT to use GitHub?</strong><p>Read repository information.</p></div><form><button type="button" id="once">Allow once</button><button type="button" aria-label="Approval options">Options</button></form></section>');
+  const place=layout(h);
+  const trigger=h.document.querySelector('[aria-label="Approval options"]');
+  place(h.document.querySelector('#once'),10,10,80,20);place(trigger,90,10,20,20);
   let once=0,full=0,opened=0;
   h.document.querySelector('#once').onclick=()=>once++;
-  h.document.querySelector('[aria-label="Approval options"]').onclick=()=>{
+  trigger.onclick=e=>{
+    if(e.clientX<103)return; // only the chevron end opens the menu
     opened++; const menu=h.document.createElement('div');menu.setAttribute('role','menu');menu.dataset.state='open';
     menu.innerHTML='<button role="menuitem">Allow once</button><button role="menuitem"></button>';
     menu.lastChild.textContent=label;
     menu.firstChild.onclick=()=>once++;
     menu.lastChild.onclick=()=>{full++;h.document.querySelector('section').remove();menu.remove();};
     h.document.body.append(menu);
+    place(menu.firstChild,80,40,100,20);place(menu.lastChild,80,60,100,20);
   };
   return {...h,counts:()=>[once,full,opened]};
 }
@@ -197,14 +214,13 @@ test('keyboard dispatch sends bounded events to focus without touching credentia
 test('effort picker opens, uses role-less drag track and verifies composer label',async()=>{
   const h=harness('<form><div id="prompt-textarea"></div><button type="button" aria-label="Thinking effort">Medium</button></form>');
   const button=h.document.querySelector('button');
-  const rectangle=(left,top,width,height)=>({left,top,width,height,right:left+width,bottom:top+height});
-  h.window.PointerEvent=h.window.MouseEvent;
+  const place=layout(h);place(button,10,100,100,20);
   button.onclick=()=>{
     const popup=h.document.createElement('section');popup.dataset.state='open';
     popup.innerHTML='<div id="track"></div><div><span>Low</span><span>Medium</span><span>High</span></div>';
     h.document.body.append(popup);
-    const track=popup.querySelector('#track');track.getBoundingClientRect=()=>rectangle(10,10,200,8);
-    popup.querySelectorAll('span').forEach((e,i)=>e.getBoundingClientRect=()=>rectangle(i*90+10,30,20,15));
+    const track=popup.querySelector('#track');place(track,10,10,200,8);
+    popup.querySelectorAll('span').forEach((e,i)=>place(e,i*90+10,30,20,15));
     track.onpointerup=null;
     track.addEventListener('pointerup',e=>{if(e.clientX>170)button.textContent='High';popup.remove();});
   };
@@ -216,4 +232,40 @@ test('ChatGPT-only controls fail on fixture, probes remain read-only',async()=>{
   const h=harness('<main>fixture</main>','http://driver:8080/fixtures/session');
   assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error.code,'URL_FORBIDDEN');
   assert.equal((await h.command('tabs.approve',{service:'GitHub'})).error.code,'URL_FORBIDDEN');h.close();
+});
+
+test('coordinate inspection gives hit and ancestor geometry, then exact off-center event sequence',async()=>{
+  const h=harness('<button id="pill">Allow once <span id="chevron" aria-label="Options">v</span></button><button id="outside">Outside</button>');
+  const place=layout(h),pill=h.document.querySelector('#pill'),chevron=h.document.querySelector('#chevron');
+  place(pill,10,10,100,20);place(chevron,95,10,15,20);place(h.document.querySelector('#outside'),-100,10,10,10);
+  const events=[]; for(const n of ['pointermove','pointerdown','mousedown','pointerup','mouseup','click'])chevron.addEventListener(n,e=>events.push([e.type,e.clientX,e.clientY,e.isTrusted]));
+  const map=await h.command('tabs.mapInteractive');
+  assert.equal(map.result.elements.length,1);assert.equal(map.result.elements[0].rect.width,100);
+  const inspect=await h.command('tabs.inspectAt',{x:105,y:20});
+  assert.equal(inspect.result.element.ariaLabel,'Options');assert.equal(inspect.result.ancestors[0].tag,'button');
+  assert.equal(events.length,0);
+  const fields={x:105,y:20,inspectionId:inspect.result.inspectionId};
+  assert.equal((await h.command('tabs.clickAt',fields)).result.dispatched,true);
+  assert.deepEqual(events,['pointermove','pointerdown','mousedown','pointerup','mouseup','click'].map(n=>[n,105,20,false]));
+  assert.equal((await h.command('tabs.clickAt',fields)).error.code,'INSPECTION_REQUIRED');
+  h.close();
+});
+test('coordinate clicks reject changed, covered or uninspected targets and credentials',async()=>{
+  const h=harness('<button id="target">Original</button><button id="overlay" hidden>Overlay</button><input id="pw" type="password">');
+  const place=layout(h),target=h.document.querySelector('#target'),overlay=h.document.querySelector('#overlay');
+  place(target,10,10,100,20);place(h.document.querySelector('#pw'),10,50,100,20);
+  let clicks=0;target.onclick=()=>clicks++;overlay.onclick=()=>clicks++;
+  const get=async()=>({x:20,y:20,inspectionId:(await h.command('tabs.inspectAt',{x:20,y:20})).result.inspectionId});
+  let fields=await get();assert.equal((await h.command('tabs.clickAt',{...fields,x:21})).error.code,'POINT_NOT_INSPECTED');
+  fields=await get();target.textContent='Changed';assert.equal((await h.command('tabs.clickAt',fields)).error.code,'POINT_TARGET_CHANGED');
+  fields=await get();overlay.hidden=false;place(overlay,10,10,100,20);assert.equal((await h.command('tabs.clickAt',fields)).error.code,'POINT_TARGET_CHANGED');
+  assert.equal((await h.command('tabs.inspectAt',{x:20,y:60})).error.code,'CREDENTIAL_INPUT_FORBIDDEN');
+  assert.equal((await h.command('tabs.inspectAt',{x:9999,y:20})).error.code,'POINT_OUTSIDE_VIEWPORT');
+  assert.equal(clicks,0);h.close();
+});
+test('coordinate commands deny internal fixture and arbitrary code',async()=>{
+  const h=harness('<button>Fixture</button>','http://driver:8080/fixtures/session');
+  for(const [cmd,fields] of [['tabs.inspectAt',{x:1,y:1}],['tabs.clickAt',{x:1,y:1,inspectionId:'a'.repeat(32)}],['tabs.mapInteractive',{}]])
+    assert.equal((await h.command(cmd,fields)).error.code,'URL_FORBIDDEN');
+  h.close();
 });

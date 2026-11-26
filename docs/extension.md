@@ -131,3 +131,29 @@ The effort geometry and approval markup are based on reported UI observations
 and synthetic fixtures; no claim of real ChatGPT compatibility is made until
 a separately authorized, isolated account acceptance check. The existing
 signed 0.1.1 artifact remains historical and must not be used to build 0.1.2.
+
+### Viewport inspection and coordinate controls
+
+These three commands are ChatGPT-only. Coordinates are CSS viewport pixels,
+not page-scroll offsets or screenshot/device pixels. The map returns up to 150
+visible enabled semantic controls (bounded labels/text and bounding rectangles);
+it reports truncation and is not a screenshot or guarantee of hitability.
+Role-less controls are reachable with point inspection.
+
+- `tabs.mapInteractive`: no extra fields; read-only visible control inventory.
+- `tabs.inspectAt`: `x`, `y`; hit-tests with elementFromPoint and returns the
+  element plus ancestors (tag, explicit role, ariaLabel, text, rect), viewport
+  and an inspectionId. A new inspection supersedes the previous one.
+- `tabs.clickAt`: identical `x`, `y`, and the returned `inspectionId`.
+  The one-use inspection expires after 30 seconds and is bound to the document,
+  URL, exact target, ancestry and geometry. Changed or covered targets fail.
+  The action dispatches pointer/mouse events at the inspected point, not a
+  center click or native browser input. Inspect the application's response
+  before retrying; dispatch does not establish acceptance.
+
+No new host permission, arbitrary code, frame traversal, credential input,
+automatic approval, replay or native privileged keyboard/pointer API is added.
+Effort drag and approval use the same hit-test primitives; the approval
+options trigger is hit near its right edge and the verified conversation
+menu item is hit-tested before activation. These are synthetic events
+(`isTrusted=false`); isolated real application verification remains required.

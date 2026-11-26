@@ -362,3 +362,14 @@ test('new commands transit authenticated HTTP/WS and replay is refused',async t=
   assert.equal((await post(h,{id:'bad',cmd:'tabs.setEffort',container:'ChatGPT 1',tabId:1,effort:'Pro'})).status,400);
   ws.close();
 });
+
+test('coordinate commands transit authenticated HTTP/WS and remain replay protected',async t=>{
+  const h=await harness(t),ws=await browser(h);
+  for(const [i,cmd,fields] of [[1,'tabs.inspectAt',{x:12,y:30}],[2,'tabs.clickAt',{x:12,y:30,inspectionId:'a'.repeat(32)}],[3,'tabs.mapInteractive',{}]]) {
+    const command={id:'point-'+i,cmd,container:'ChatGPT 1',tabId:1,...fields};
+    const r=await roundTrip(h,ws,command,{fixture:true});
+    assert.equal(r.response.status,200);assert.equal(r.dispatched.cmd,cmd);
+    assert.equal((await post(h,command)).status,409);
+  }
+  ws.close();
+});

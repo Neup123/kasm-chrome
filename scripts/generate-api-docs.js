@@ -17,12 +17,15 @@ const properties = {
   effort:{type:'string',enum:EFFORTS},
   service:{type:'string',pattern:SERVICE_PATTERN,description:'Exact service name; omit for read-only approval inspection.'},
   key:{type:'string',maxLength:64,pattern:KEY_PATTERN,description:'Named key or modified letter/digit; synthetic DOM events only.'},
+  x:{type:'number',minimum:0,maximum:32767,description:'Viewport CSS-pixel x coordinate.'},
+  y:{type:'number',minimum:0,maximum:32767,description:'Viewport CSS-pixel y coordinate.'},
+  inspectionId:{type:'string',pattern:'^[a-f0-9]{32}$',description:'Single-use inspection ID returned by tabs.inspectAt, valid for 30 seconds in the same document.'},
   timeoutMs:{type:'integer',minimum:100,maximum:LIMITS.maxTimeoutMs,default:15000}
 };
 const schemas=COMMANDS.map(cmd=>{
   const keys=['id','timeoutMs',...(cmd==='containers.list'?[]:['container']),...FIELDS[cmd]];
   const required=['cmd',...(cmd==='containers.list'?[]:['container'])];
-  for(const key of ['tabId','url','text','probe','effort','key']) if(FIELDS[cmd].includes(key)) required.push(key);
+  for(const key of ['tabId','url','text','probe','effort','key','x','y','inspectionId']) if(FIELDS[cmd].includes(key)) required.push(key);
   if(['tabs.click','tabs.type'].includes(cmd)) required.push('selector');
   const schema={type:'object',additionalProperties:false,properties:{cmd:{const:cmd},...Object.fromEntries(keys.map(k=>[k,properties[k]]))},required};
   if(cmd==='tabs.eval') schema.allOf=[{if:{properties:{probe:{const:'elements'}}},then:{required:['selector']}}];

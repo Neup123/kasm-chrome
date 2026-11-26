@@ -599,6 +599,148 @@
               "tabId",
               "key"
             ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "cmd": {
+                "const": "tabs.inspectAt"
+              },
+              "id": {
+                "type": "string",
+                "maxLength": 100,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$",
+                "description": "Unique request ID; generated when omitted. Accepted IDs are retained for 15 minutes to reject replay."
+              },
+              "timeoutMs": {
+                "type": "integer",
+                "minimum": 100,
+                "maximum": 60000,
+                "default": 15000
+              },
+              "container": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Exact, unambiguous Firefox contextual-identity name."
+              },
+              "tabId": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "x": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 32767,
+                "description": "Viewport CSS-pixel x coordinate."
+              },
+              "y": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 32767,
+                "description": "Viewport CSS-pixel y coordinate."
+              }
+            },
+            "required": [
+              "cmd",
+              "container",
+              "tabId",
+              "x",
+              "y"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "cmd": {
+                "const": "tabs.clickAt"
+              },
+              "id": {
+                "type": "string",
+                "maxLength": 100,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$",
+                "description": "Unique request ID; generated when omitted. Accepted IDs are retained for 15 minutes to reject replay."
+              },
+              "timeoutMs": {
+                "type": "integer",
+                "minimum": 100,
+                "maximum": 60000,
+                "default": 15000
+              },
+              "container": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Exact, unambiguous Firefox contextual-identity name."
+              },
+              "tabId": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "x": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 32767,
+                "description": "Viewport CSS-pixel x coordinate."
+              },
+              "y": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 32767,
+                "description": "Viewport CSS-pixel y coordinate."
+              },
+              "inspectionId": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{32}$",
+                "description": "Single-use inspection ID returned by tabs.inspectAt, valid for 30 seconds in the same document."
+              }
+            },
+            "required": [
+              "cmd",
+              "container",
+              "tabId",
+              "x",
+              "y",
+              "inspectionId"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "cmd": {
+                "const": "tabs.mapInteractive"
+              },
+              "id": {
+                "type": "string",
+                "maxLength": 100,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$",
+                "description": "Unique request ID; generated when omitted. Accepted IDs are retained for 15 minutes to reject replay."
+              },
+              "timeoutMs": {
+                "type": "integer",
+                "minimum": 100,
+                "maximum": 60000,
+                "default": 15000
+              },
+              "container": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Exact, unambiguous Firefox contextual-identity name."
+              },
+              "tabId": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "cmd",
+              "container",
+              "tabId"
+            ]
           }
         ]
       }

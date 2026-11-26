@@ -152,3 +152,12 @@ test('new commands route only to explicit named container and document', async()
     assert.equal(sent[2].expectedUrl,'https://chatgpt.com/');
   }
 });
+
+test('coordinate commands preserve document routing and container isolation',async()=>{
+  for(const [cmd,fields] of [['tabs.inspectAt',{x:1,y:2}],['tabs.clickAt',{x:1,y:2,inspectionId:'a'.repeat(32)}],['tabs.mapInteractive',{}]]) {
+    const h=harness();
+    await assert.rejects(h.router.dispatch(request(cmd,{tabId:22,...fields})),{code:'CONTAINER_MISMATCH'});
+    await h.router.dispatch(request(cmd,{tabId:11,...fields}));
+    assert.equal(h.calls.find(c=>c[0]==='send')[2].command.cmd,cmd);
+  }
+});

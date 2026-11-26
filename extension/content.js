@@ -213,11 +213,125 @@
     function pointer(target, type, x, y, down) {
       const EventClass = win.PointerEvent;
       if (typeof EventClass !== "function") fail("POINTER_UNAVAILABLE", "This browser cannot dispatch packaged pointer events.");
-      target.dispatchEvent(new EventClass(type, {
+      return target.dispatchEvent(new EventClass(type, {
         bubbles: true, composed: true, cancelable: true, clientX: x, clientY: y,
         pointerId: 1, pointerType: "mouse", isPrimary: true, button: 0, buttons: down ? 1 : 0
       }));
     }
+
+    // One recent, single-use inspection per document. A new inspection
+    // supersedes the old one; never retain or expose a page value or credential.
+    let lastInspection = null;
+    const rectOf = el => {
+      const r = el.getBoundingClientRect();
+      return {x:r.left,y:r.top,width:r.width,height:r.height,left:r.left,top:r.top,right:r.right,bottom:r.bottom};
+    };
+    const inside = (r,x,y) => x >= r.left && x < r.right && y >= r.top && y < r.bottom;
+    const credentialAncestor = el => {
+      for (let node=el; node; node=node.parentElement) if (sensitiveField(node)) return true;
+      return false;
+    };
+    function viewportPoint(x,y) {
+      if (x < 0 || y < 0 || x >= win.innerWidth || y >= win.innerHeight)
+        fail("POINT_OUTSIDE_VIEWPORT","Coordinates must be inside the current CSS-pixel viewport.");
+    }
+    function pointTarget(x,y) {
+      viewportPoint(x,y);
+      if (typeof doc.elementFromPoint !== "function") fail("HIT_TEST_UNAVAILABLE","This document cannot hit-test viewport coordinates.");
+      const el = doc.elementFromPoint(x,y);
+      if (!el || !el.isConnected || !inside(rectOf(el),x,y)) fail("POINT_NOT_FOUND","No connected element contains the inspected point.");
+      if (el.matches("iframe,frame,object,embed")) fail("FRAME_FORBIDDEN","Nested browsing contexts are not supported.");
+      if (credentialAncestor(el)) fail("CREDENTIAL_INPUT_FORBIDDEN","Credential and file inputs are outside coordinate scope.");
+      checkInteractable(el);
+      return el;
+    }
+    function geometryDescription(el) {
+      return {tag:el.tagName.toLowerCase(),role:el.getAttribute("role"),ariaLabel:(el.getAttribute("aria-label")||"").slice(0,300),
+        text:textOf(el).trim().slice(0,300),rect:rectOf(el)};
+    }
+    function chainOf(el) {
+      const chain=[];
+      for (let node=el; node && chain.length<64; node=node.parentElement) chain.push(geometryDescription(node));
+      return chain;
+    }
+    function inspectAt(request) {
+      chatOnly();
+      lastInspection=null;
+      const {x,y}=request, target=pointTarget(x,y), chain=chainOf(target);
+      const id=Array.from(win.crypto.getRandomValues(new Uint8Array(16)), b=>b.toString(16).padStart(2,"0")).join("");
+      lastInspection={id,target,x,y,url:win.location.href,chain:JSON.stringify(chain),expires:now()+30000};
+      return {inspectionId:id,x,y,viewport:{width:win.innerWidth,height:win.innerHeight},element:chain[0],ancestors:chain.slice(1),expiresInMs:30000};
+    }
+    function mapInteractive() {
+      chatOnly();
+      const selector='button,a[href],input:not([type="hidden"]),textarea,select,summary,[role="button"],[role="link"],[role="menuitem"],[role="menuitemcheckbox"],[role="menuitemradio"],[role="option"],[role="tab"],[role="checkbox"],[role="radio"],[role="switch"],[role="slider"],[role="textbox"],[tabindex],[contenteditable="true"],[contenteditable="plaintext-only"],[aria-haspopup]';
+      const elements=[];
+      let truncated=false;
+      for (const el of doc.querySelectorAll(selector)) {
+        if (credentialAncestor(el) || !visible(el)) continue;
+        const r=rectOf(el);
+        if (r.width<=0 || r.height<=0 || r.right<=0 || r.bottom<=0 || r.left>=win.innerWidth || r.top>=win.innerHeight) continue;
+        if (elements.length===150) {truncated=true;break;}
+        elements.push(geometryDescription(el));
+      }
+      return {viewport:{width:win.innerWidth,height:win.innerHeight},elements,truncated};
+    }
+    function inspectedTarget(expected,x,y) {
+      const hit=pointTarget(x,y);
+      if (hit!==expected && !expected.contains(hit)) fail("POINT_TARGET_CHANGED","The inspected coordinate is covered or targets a different element.");
+      return hit;
+    }
+    function mouse(target,type,x,y,down) {
+      return target.dispatchEvent(new win.MouseEvent(type,{bubbles:true,composed:true,cancelable:true,clientX:x,clientY:y,
+        button:0,buttons:down?1:0,detail:type==="click"?1:0,view:win}));
+    }
+    function clickSequence(expected,x,y,message) {
+      guard(message);
+      const target=inspectedTarget(expected,x,y);
+      // Honor a canceled pointerdown: browsers suppress compatibility mouse
+      // events in that case, but still generate pointerup and click.
+      pointer(target,"pointermove",x,y,false);
+      guard(message);
+      if (inspectedTarget(expected,x,y)!==target) fail("POINT_TARGET_CHANGED","The hit target changed before pointerdown.");
+      const compatible=pointer(target,"pointerdown",x,y,true);
+      // Release on the original target even on cancellation; never activate a
+      // different element if the UI rerenders after the down event.
+      try {
+        guard(message);
+        if (compatible && target.isConnected) mouse(target,"mousedown",x,y,true);
+      } finally {
+        pointer(target,"pointerup",x,y,false);
+        if (compatible && target.isConnected) mouse(target,"mouseup",x,y,false);
+      }
+      guard(message);
+      if (inspectedTarget(expected,x,y)!==target) fail("POINT_TARGET_CHANGED","The hit target changed during pointer dispatch; inspect before retrying.");
+      mouse(target,"click",x,y,false);
+      return {dispatched:true,synthetic:true,x,y};
+    }
+    function clickAt(request,message) {
+      chatOnly();
+      const saved=lastInspection;
+      lastInspection=null;
+      if (!saved || saved.id!==request.inspectionId || saved.url!==win.location.href || now()>=saved.expires)
+        fail("INSPECTION_REQUIRED","Inspect the point again before clicking; inspections are single-use and expire after 30 seconds.");
+      if (request.x!==saved.x || request.y!==saved.y) fail("POINT_NOT_INSPECTED","Click coordinates must exactly match the inspected point.");
+      const target=pointTarget(request.x,request.y);
+      if (target!==saved.target || JSON.stringify(chainOf(target))!==saved.chain)
+        fail("POINT_TARGET_CHANGED","The inspected element, ancestry, text or geometry changed; inspect again.");
+      return clickSequence(target,request.x,request.y,message);
+    }
+    function clickElementAt(element,message,rightEdge=false) {
+      checkInteractable(element);
+      const r=rectOf(element);
+      const left=Math.max(0,r.left),right=Math.min(win.innerWidth,r.right);
+      const top=Math.max(0,r.top),bottom=Math.min(win.innerHeight,r.bottom);
+      if (!(right>left && bottom>top)) fail("POINT_OUTSIDE_VIEWPORT","The control is outside the visible viewport.");
+      const x=rightEdge ? right-Math.min(5,(right-left)/2) : (left+right)/2;
+      const y=(top+bottom)/2;
+      inspectedTarget(element,x,y);
+      return clickSequence(element,x,y,message);
+    }
+
     function effortGeometry(root, current, desired) {
       const labels = protocol.EFFORTS.map(level => unique(Array.from(root.querySelectorAll("*")).filter(el =>
         !el.children.length && normalized(textOf(el)) === level && visible(el)), "EFFORT_TICKS_NOT_UNIQUE", "The three effort ticks were not uniquely identified."));
@@ -248,20 +362,21 @@
       if (!previous) fail("EFFORT_CURRENT_UNKNOWN", "The composer does not identify its current Low, Medium, or High effort.");
       let popup = effortPopup();
       if (!popup) {
-        guard(message); trigger.click();
+        clickElementAt(trigger,message);
         popup = await waitFor(message, effortPopup, "EFFORT_PICKER_NOT_OPEN", "The effort popup did not open.");
       }
       const {el,y,from,to} = effortGeometry(popup, previous, request.effort);
       // Dispatch to the actual hit-tested child (usually the draggable thumb),
       // then to the same target for pointermove/up; no browser-wide input.
-      const hit = typeof doc.elementFromPoint === "function" ? doc.elementFromPoint(from,y) : el;
-      const target = hit && (hit === el || el.contains(hit)) ? hit : el;
-      checkInteractable(target);
+      const target = inspectedTarget(el,from,y);
+      inspectedTarget(el,to,y);
       guard(message); pointer(target,"pointerdown",from,y,true);
       try {
         for (let step=1; step<=4; step++) {
           guard(message);
-          pointer(target,"pointermove",from+(to-from)*step/4,y,true);
+          const x=from+(to-from)*step/4;
+          inspectedTarget(el,x,y);
+          pointer(target,"pointermove",x,y,true);
         }
       } finally {
         pointer(target,"pointerup",to,y,false);
@@ -309,7 +424,7 @@
         fail("APPROVAL_SERVICE_MISMATCH","The open question does not match the explicitly requested service.");
       const menus = () => matches(doc,'[role="menu"][data-state="open"]');
       if (menus().length) fail("APPROVAL_MENU_ALREADY_OPEN","Inspect and close the existing menu before authorizing.");
-      guard(message); initial.trigger.click();
+      clickElementAt(initial.trigger,message,true);
       const menu = await waitFor(message, () => {
         const items = menus();
         if (items.length > 1) fail("APPROVAL_MENU_AMBIGUOUS","Multiple menus are open.");
@@ -324,7 +439,7 @@
       if (items.length < 2 || normalized(textOf(items[1])) !== full ||
           items.filter(item=>normalized(textOf(item)) === full).length !== 1)
         fail("APPROVAL_OPTION_NOT_VERIFIED","The full-conversation menu item was not verified. No grant was activated.");
-      guard(message); items[1].click();
+      clickElementAt(items[1],message);
       await waitFor(message, () => !initial.form.isConnected || !visible(initial.trigger), "APPROVAL_NOT_CONFIRMED",
         "The grant was activated but the approval form did not disappear; inspect before retrying.");
       return {found:true,approved:true,scope:"conversation",question,description,service:request.service};
@@ -367,6 +482,9 @@
           case "tabs.setEffort": result = await setEffort(request, message); break;
           case "tabs.approve": result = await approve(request, message); break;
           case "tabs.key": result = key(request, message); break;
+          case "tabs.inspectAt": result = inspectAt(request); break;
+          case "tabs.clickAt": result = clickAt(request,message); break;
+          case "tabs.mapInteractive": result = mapInteractive(); break;
           default: fail("UNKNOWN_DOM_COMMAND", "This command is not a packaged DOM operation.");
         }
         return { ok: true, result };

@@ -81,6 +81,10 @@ async function main(){
     const r=await request('/commands',{cmd,container:a.name,tabId:ta.tabId,...fields});
     assert.equal(r.body.error?.code,'URL_FORBIDDEN');
   }
+  for(const [cmd,fields] of [['tabs.inspectAt',{x:1,y:1}],['tabs.clickAt',{x:1,y:1,inspectionId:'a'.repeat(32)}],['tabs.mapInteractive',{}]]) {
+    const r=await request('/commands',{cmd,container:a.name,tabId:ta.tabId,...fields});
+    assert.equal(r.body.error?.code,'URL_FORBIDDEN');
+  }
   console.log('PASS: synthetic key event and ChatGPT-only guard through real ESR');
   const wrong=await request('/commands',{cmd:'tabs.readText',container:b.name,tabId:ta.tabId});
   assert.equal(wrong.body.error?.code,'CONTAINER_MISMATCH');

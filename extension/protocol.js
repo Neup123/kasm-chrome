@@ -18,7 +18,7 @@
   const COMMANDS = Object.freeze([
     'containers.ensure', 'containers.list', 'tabs.create', 'tabs.navigate',
     'tabs.close', 'tabs.list', 'tabs.readText', 'tabs.eval', 'tabs.click', 'tabs.type',
-    'tabs.setEffort', 'tabs.approve', 'tabs.key'
+    'tabs.setEffort', 'tabs.approve', 'tabs.key', 'tabs.inspectAt', 'tabs.clickAt', 'tabs.mapInteractive'
   ]);
   const COLORS = Object.freeze(['blue', 'turquoise', 'green', 'yellow', 'orange', 'red', 'pink', 'purple', 'toolbar']);
   const ICONS = Object.freeze(['fingerprint', 'briefcase', 'dollar', 'cart', 'circle', 'gift', 'vacation', 'food']);
@@ -36,7 +36,9 @@
     'tabs.click': ['tabId', 'selector'],
     'tabs.type': ['tabId', 'selector', 'text', 'clear'],
     'tabs.setEffort': ['tabId', 'effort'], 'tabs.approve': ['tabId', 'service'],
-    'tabs.key': ['tabId', 'key']
+    'tabs.key': ['tabId', 'key'],
+    'tabs.inspectAt': ['tabId', 'x', 'y'], 'tabs.clickAt': ['tabId', 'x', 'y', 'inspectionId'],
+    'tabs.mapInteractive': ['tabId']
   });
 
   class ProtocolError extends Error {
@@ -131,6 +133,18 @@
       if (new Set(modifiers).size !== modifiers.length || (/^[A-Z0-9]$/.test(parts.at(-1)) && !modifiers.length))
         fail('INVALID_COMMAND', 'Use a named key or a modified letter/digit without repeated modifiers.');
       result.key = input.key;
+    }
+    if (input.cmd === 'tabs.inspectAt' || input.cmd === 'tabs.clickAt') {
+      for (const key of ['x','y']) {
+        if (typeof input[key] !== 'number' || !Number.isFinite(input[key]) || input[key] < 0 || input[key] > 32767)
+          fail('INVALID_COMMAND', 'Viewport coordinates must be finite CSS pixels from 0 to 32767.');
+        result[key] = input[key];
+      }
+    }
+    if (input.cmd === 'tabs.clickAt') {
+      if (typeof input.inspectionId !== 'string' || !/^[a-f0-9]{32}$/.test(input.inspectionId))
+        fail('INVALID_COMMAND', 'A fresh inspectionId from tabs.inspectAt is required.');
+      result.inspectionId = input.inspectionId;
     }
     return result;
   }
