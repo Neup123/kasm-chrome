@@ -1,0 +1,5 @@
+FROM node:24.22.3-bookworm-slim
+WORKDIR /smoke
+COPY scripts/esr-smoke.js /smoke/smoke.js
+USER node
+CMD ["sleep", "infinity"]
