@@ -16,7 +16,13 @@ cleanup() {
   sudo rm -rf "$tmp"
 }
 trap cleanup EXIT
-docker build -f firefox/Dockerfile.esr -t "$prefix-firefox" .
+if [ "${SIGNED_RELEASE_SMOKE:-0}" = 1 ]; then
+  # The actual production image recipe, built only on this disposable CI runner.
+  # No deployment, registry push, shared host or existing profile.
+  docker build -f firefox/Dockerfile -t "$prefix-firefox" .
+else
+  docker build -f firefox/Dockerfile.esr -t "$prefix-firefox" .
+fi
 docker build -f driver/Dockerfile -t "$prefix-driver" .
 # Synthetic credentials are generated on the runner; never print or upload them.
 python3 - "$tmp" <<'PY'
@@ -31,6 +37,11 @@ sudo chmod 0400 "$tmp/key" "$tmp/managed"
 chmod 0600 "$tmp/browser.env"
 docker network create --internal "$network"
 docker volume create "$volume"
+if [ "${SIGNED_RELEASE_SMOKE:-0}" = 1 ]; then
+  docker run --rm --network none --user root --entrypoint /bin/sh \
+    --mount "type=volume,src=$volume,dst=/esr-profile" "$prefix-firefox" \
+    -c 'chown 1000:1000 /esr-profile && chmod 0700 /esr-profile'
+fi
 docker run -d --name "$driver" --network "$network" --network-alias driver \
   --mount "type=bind,src=$tmp/key,dst=/run/secrets/driver_api_key,readonly" \
   --mount "type=bind,src=$tmp/managed,dst=/run/secrets/driver_managed_storage,readonly" \
@@ -39,6 +50,32 @@ docker run -d --name "$browser" --network "$network" --shm-size=512m \
   --env-file "$tmp/browser.env" --env "APP_ARGS=-profile /esr-profile" --mount "type=volume,src=$volume,dst=/esr-profile" \
   --mount "type=bind,src=$tmp/managed,dst=/usr/lib/mozilla/managed-storage/kasm-agent@chabad.gr.json,readonly" \
   "$prefix-firefox"
+if [ "${SIGNED_RELEASE_SMOKE:-0}" = 1 ]; then
+  browser_version=$(docker exec "$browser" firefox --version)
+  printf '%s\n' "$browser_version"
+  if printf '%s\n' "$browser_version" | grep -qi esr; then echo 'Expected Firefox Release, not ESR'; exit 1; fi
+  docker exec "$browser" python3 -c 'import json; p=json.load(open("/etc/firefox/policies/policies.json"))["policies"]; assert "xpinstall.signatures.required" not in p.get("Preferences",{}); assert p["ExtensionSettings"]["kasm-agent@chabad.gr"]["installation_mode"]=="force_installed"'
+  docker exec -i "$driver" node - "$version" --signed-release < scripts/esr-smoke.js
+  docker exec -i "$browser" python3 - "$version" <<'PY'
+import json, pathlib, sys, time
+path = pathlib.Path('/esr-profile/extensions.json')
+for _ in range(45):
+    try:
+        items=json.loads(path.read_text())['addons']
+        addon=next(a for a in items if a['id']=='kasm-agent@chabad.gr')
+        if addon.get('version') == sys.argv[1] and addon.get('active') is True and addon.get('signedState',-999) >= 2 and not addon.get('appDisabled') and not addon.get('userDisabled'):
+            print('PASS: Firefox Release reports active signed extension',json.dumps({k:addon.get(k) for k in ('id','version','active','signedState','appDisabled','userDisabled')}))
+            break
+    except (OSError,ValueError,KeyError,StopIteration):
+        pass
+    time.sleep(1)
+else:
+    raise SystemExit('Firefox Release did not report active trusted signed extension')
+PY
+  # Full fixture suite already passed; keep this signature acceptance check bounded.
+  echo 'PASS: stock Firefox Release signed policy installation and live bridge'
+  exit 0
+fi
 docker exec "$browser" firefox-esr --version
 docker exec -i "$driver" node - "$version" < scripts/esr-smoke.js
 docker restart "$driver"
