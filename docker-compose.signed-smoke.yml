@@ -1,0 +1,86 @@
+# Disposable smoke stack: no production network, profile, credentials or public routes.
+services:
+  init:
+    image: node:24.22.3-bookworm-slim
+    user: "0:0"
+    network_mode: none
+    restart: "no"
+    volumes:
+      - managed:/managed
+      - api:/api
+    command:
+      - node
+      - -e
+      - |
+        const fs = require('node:fs');
+        const crypto = require('node:crypto');
+        const managed = '/managed/kasm-agent@chabad.gr.json';
+        const api = '/api/driver_api_key';
+        if (fs.existsSync(managed) && fs.existsSync(api)) process.exit(0);
+        const random = () => crypto.randomBytes(32).toString('base64url');
+        const write = (path, value) => {
+          fs.writeFileSync(path, value, {mode: 0o400});
+          fs.chownSync(path, 1000, 1000);
+        };
+        write(managed, JSON.stringify({name:'kasm-agent@chabad.gr',description:'Disposable synthetic smoke fixture',type:'storage',data:{wsUrl:'ws://driver:8080/ws',wsToken:random()}}));
+        write(api, random());
+  driver:
+    build:
+      context: .
+      dockerfile: driver/Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: "8080"
+      DRIVER_MANAGED_STORAGE_FILE: /run/managed/kasm-agent@chabad.gr.json
+      DRIVER_API_KEY_FILE: /run/api/driver_api_key
+    volumes:
+      - managed:/run/managed:ro
+      - api:/run/api:ro
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    networks:
+      smoke:
+        aliases: [driver]
+    labels:
+      traefik.enable: "false"
+  firefox:
+    build:
+      context: .
+      dockerfile: firefox/Dockerfile
+    # A non-secret synthetic fixture password, not exposed outside this stack.
+    environment:
+      VNC_PW: synthetic-fixture-only
+    volumes:
+      - profile:/home/kasm-user
+      - managed:/usr/lib/mozilla/managed-storage:ro
+    shm_size: 512mb
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    networks: [smoke]
+    labels:
+      traefik.enable: "false"
+  runner:
+    build:
+      context: .
+      dockerfile: scripts/Dockerfile.signed-smoke
+    user: "1000:1000"
+    environment:
+      SMOKE_BASE: http://driver:8080/agent-driver/v1
+      SMOKE_VARIANT: signed
+    volumes:
+      - api:/run/secrets:ro
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    networks: [smoke]
+    labels:
+      traefik.enable: "false"
+volumes:
+  managed:
+  api:
+  profile:
+networks:
+  smoke:
+    internal: true
