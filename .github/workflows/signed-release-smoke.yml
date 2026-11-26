@@ -19,7 +19,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Verify reviewed extension tree has not changed
-        run: git diff --exit-code 9db98c8204db3e7f9c90e670ec769e64b4be5f46 HEAD -- extension/
+        run: test "$(git rev-parse HEAD:extension)" = '28bd883ac31896bc4bdcf5b20a17842adec9cd02'
       - name: Download and verify exact AMO artifact
         env:
           GH_TOKEN: ${{ github.token }}
