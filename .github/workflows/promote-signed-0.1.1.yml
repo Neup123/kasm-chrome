@@ -1,0 +1,38 @@
+name: Promote verified signed 0.1.1
+on:
+  push:
+    branches: ['release/signed-0.1.1']
+    paths: ['.github/workflows/promote-signed-0.1.1.yml']
+permissions:
+  actions: read
+  contents: write
+concurrency:
+  group: promote-signed-0.1.1
+  cancel-in-progress: false
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - name: Download existing successful AMO artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download 45540864870 --repo Neup123/kasm-chrome --name kasm-agent-signed --dir "$RUNNER_TEMP/kasm-signed"
+      - name: Verify signed package against exact release source
+        run: |
+          cd "$RUNNER_TEMP/kasm-signed"
+          echo 'd9a6a331bb255493d3bb049ccf2d14c521e72415051f155e24dcf90067e64bd1  kasm-agent-signed.xpi' | sha256sum -c -
+          cd "$GITHUB_WORKSPACE"
+          python3 scripts/verify-xpi.py "$RUNNER_TEMP/kasm-signed/kasm-agent-signed.xpi" --require-signature --metadata "$RUNNER_TEMP/kasm-signed/signed-artifact.json"
+      - name: Publish only verified package and metadata on release branch
+        run: |
+          cp "$RUNNER_TEMP/kasm-signed/kasm-agent-signed.xpi" artifacts/kasm-agent-signed.xpi
+          cp "$RUNNER_TEMP/kasm-signed/signed-artifact.json" artifacts/signed-artifact.json
+          git add -f artifacts/kasm-agent-signed.xpi artifacts/signed-artifact.json
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Promote verified AMO-signed extension 0.1.1 (refs #6)'
+          git push origin HEAD:release/signed-0.1.1
