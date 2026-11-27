@@ -1,0 +1,102 @@
+# Deploy in Coolify raw Compose mode after the live preflight in docs/DEPLOYMENT.md.
+# Fresh ESR profile only; never mount the old Release profile.
+services:
+  firefox:
+    build:
+      context: .
+      dockerfile: firefox/Dockerfile.esr
+    image: kasm-agent-firefox:${DRIVER_IMAGE_TAG:?immutable release tag required}
+    environment:
+      VNC_PW: ${VNC_PW:?existing VNC secret required}
+    expose:
+      - "6901"
+    volumes:
+      - esr-profile:/esr-profile
+    secrets:
+      - source: driver_managed_storage
+        target: /usr/lib/mozilla/managed-storage/kasm-agent@chabad.gr.json
+        uid: "1000"
+        gid: "1000"
+        mode: 0400
+    shm_size: 512mb
+    restart: unless-stopped
+    networks:
+      - bridge-private
+      - kasm-existing
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${KASM_DOCKER_NETWORK:?existing Docker network required}
+      - traefik.http.routers.kasm-esr-browser.rule=Host(`${DRIVER_PUBLIC_HOST:?existing browser hostname required}`)
+      - traefik.http.routers.kasm-esr-browser.entrypoints=${TRAEFIK_HTTPS_ENTRYPOINT:?existing HTTPS entrypoint required}
+      - traefik.http.routers.kasm-esr-browser.priority=10000
+      - traefik.http.routers.kasm-esr-browser.tls=true
+      - traefik.http.routers.kasm-esr-browser.tls.certresolver=${TRAEFIK_CERTRESOLVER:?existing certificate resolver required}
+      - traefik.http.routers.kasm-esr-browser.middlewares=${BROWSER_AUTH_MIDDLEWARES:?existing Authelia and Kasm header middleware chain required}
+      - traefik.http.routers.kasm-esr-browser.service=kasm-esr-browser
+      - traefik.http.services.kasm-esr-browser.loadbalancer.server.port=6901
+      - traefik.http.services.kasm-esr-browser.loadbalancer.server.scheme=https
+      - traefik.http.services.kasm-esr-browser.loadbalancer.serverstransport=${BROWSER_SERVERSTRANSPORT:?existing Kasm TLS transport required}
+  driver:
+    build:
+      context: .
+      dockerfile: driver/Dockerfile
+    image: kasm-agent-driver:${DRIVER_IMAGE_TAG:?immutable release tag required}
+    environment:
+      NODE_ENV: production
+      PORT: "8080"
+      DRIVER_MANAGED_STORAGE_FILE: /run/secrets/driver_managed_storage
+      DRIVER_API_KEY_FILE: /run/secrets/driver_api_key
+    expose:
+      - "8080"
+    secrets:
+      - source: driver_managed_storage
+        target: driver_managed_storage
+        uid: "1000"
+        gid: "1000"
+        mode: 0400
+      - source: driver_api_key
+        target: driver_api_key
+        uid: "1000"
+        gid: "1000"
+        mode: 0400
+    user: "1000:1000"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    networks:
+      bridge-private:
+        aliases:
+          - driver
+      kasm-existing: {}
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${KASM_DOCKER_NETWORK:?existing Docker network required}
+      - traefik.http.routers.kasm-esr-api.rule=Host(`${DRIVER_PUBLIC_HOST:?existing browser hostname required}`) && (Path(`/agent-driver/v1`) || PathPrefix(`/agent-driver/v1/`))
+      - traefik.http.routers.kasm-esr-api.entrypoints=${TRAEFIK_HTTPS_ENTRYPOINT:?existing HTTPS entrypoint required}
+      - traefik.http.routers.kasm-esr-api.priority=20000
+      - traefik.http.routers.kasm-esr-api.tls=true
+      - traefik.http.routers.kasm-esr-api.tls.certresolver=${TRAEFIK_CERTRESOLVER:?existing certificate resolver required}
+      - traefik.http.routers.kasm-esr-api.service=kasm-esr-api
+      - traefik.http.services.kasm-esr-api.loadbalancer.server.port=8080
+      - traefik.http.services.kasm-esr-api.loadbalancer.server.scheme=http
+
+volumes:
+  esr-profile: {}
+
+networks:
+  bridge-private:
+    internal: true
+  kasm-existing:
+    external: true
+    name: ${KASM_DOCKER_NETWORK}
+
+# Native environment-backed Compose secrets: no secret bytes in this file,
+# policies.json, Docker build arguments, image layers, or the signed extension.
+# Coolify's vault-backed deployment environment must supply both values.
+secrets:
+  driver_managed_storage:
+    environment: DRIVER_MANAGED_STORAGE
+  driver_api_key:
+    environment: DRIVER_API_KEY
