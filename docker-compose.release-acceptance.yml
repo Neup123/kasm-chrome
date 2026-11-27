@@ -85,25 +85,27 @@ services:
     labels:
       traefik.enable: "false"
   gateway:
-    image: nginx:1.28-alpine
+    build:
+      context: .
+      dockerfile: firefox/Dockerfile.acceptance-gateway
     environment:
       SERVICE_URL_GATEWAY_8081: /
     volumes:
-      - ./firefox/acceptance-gateway.conf:/etc/nginx/conf.d/default.conf:ro
       - acceptance-gateway-auth:/run/gateway-auth:ro
     expose: ["8081"]
     restart: unless-stopped
     depends_on: [firefox, driver]
     networks: [acceptance-private, acceptance-front]
   bootstrap:
-    image: node:24.22.3-bookworm-slim
+    build:
+      context: .
+      dockerfile: scripts/Dockerfile.acceptance-bootstrap
     user: "1000:1000"
     restart: "no"
     environment:
       ACCEPTANCE_CI_FIXTURE: ${ACCEPTANCE_CI_FIXTURE:-0}
     volumes:
       - acceptance-api:/run/secrets:ro
-      - ./scripts/acceptance-bootstrap.js:/bootstrap.js:ro
     command: ["node","/bootstrap.js"]
     depends_on: [gateway, driver]
     networks: [acceptance-private]

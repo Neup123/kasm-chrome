@@ -1,0 +1,3 @@
+FROM node:24.22.3-bookworm-slim
+COPY scripts/acceptance-bootstrap.js /bootstrap.js
+USER 1000:1000

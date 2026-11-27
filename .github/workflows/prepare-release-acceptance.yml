@@ -2,7 +2,7 @@ name: Verify and promote signed Release 0.1.3 acceptance
 on:
   push:
     branches: ['test/release-0.1.2-coolify-acceptance']
-    paths: ['.github/workflows/prepare-release-acceptance.yml','docker-compose.release-acceptance.yml','firefox/acceptance-gateway.conf','scripts/acceptance-bootstrap.js']
+    paths: ['.github/workflows/prepare-release-acceptance.yml','docker-compose.release-acceptance.yml','firefox/acceptance-gateway.conf','scripts/acceptance-bootstrap.js','firefox/Dockerfile.acceptance-gateway','scripts/Dockerfile.acceptance-bootstrap']
 permissions:
   contents: write
   actions: read
@@ -54,6 +54,7 @@ jobs:
           c=json.load(open(sys.argv[1])); s=c['services']
           assert set(s)=={'init','firefox','driver','gateway','bootstrap'}
           assert all(not x.get('ports') for x in s.values())
+          assert all(v['type'] != 'bind' for x in s.values() for v in x.get('volumes', []))
           assert all(not x.get('external') for x in c['networks'].values())
           assert all(not x.get('external') for x in c['volumes'].values())
           assert c['networks']['acceptance-private']['internal'] is True

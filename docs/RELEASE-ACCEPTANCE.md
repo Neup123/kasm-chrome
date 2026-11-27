@@ -23,3 +23,5 @@ network, route, or credential. No automatic Coolify deployment is configured.
   Record exact pending approval text; authorize full conversation only after
   explicit test authorization. Test setEffort High with before/after label
   evidence. Actual ChatGPT acceptance cannot be inferred from bootstrap.
+
+Gateway configuration and bootstrap script are copied into their own images, not mounted from the host. This avoids Coolify/WSL Docker Desktop file-bind type mismatches. Only application-scoped named volumes remain.
