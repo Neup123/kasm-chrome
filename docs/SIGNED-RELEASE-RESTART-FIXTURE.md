@@ -32,4 +32,21 @@ The post-restart fixture opens the bare internal fixture URL, without a slot par
 
 The next acceptance subcriterion is restorable profile data. The same fixture harness is extended rather than duplicated in another PR against the same integration branch. The opt-in backup step runs only on GitHub-hosted CI, after successful signed Release restart checks, with synthetic markers and no external network. It stops/removes the disposable browser, archives only its CI profile via a read-only mount, verifies the archive checksum, restores into a distinct empty volume, recreates the browser with the same image, and reuses the existing bare-URL fixture readback (no reseeding). The source volume remains present throughout the rehearsal. Archive bytes are not uploaded or logged; CI cleanup removes the temporary archive and both disposable volumes. This is same-image backup recovery, not an image downgrade, upgrade, production rollback or actual Coolify backup. No runtime application code or extension changes.
 
-Result: awaiting completed CI evidence.
+### Observed backup/restore result — PASS, 2026-11-27
+
+- Exact tested commit: [`48182d3a5799cc94f508207838a8ec484fb0c9fd`](https://github.com/Neup123/kasm-chrome/commit/48182d3a5799cc94f508207838a8ec484fb0c9fd).
+- [Signed restart and restore CI job 140520386269](https://github.com/Neup123/kasm-chrome/actions/runs/46003376739/job/140520386269) completed successfully.
+- [General validation job 140520386005](https://github.com/Neup123/kasm-chrome/actions/runs/46003376654/job/140520386005): 73/73 tests, zero failed/skipped; zero lint errors/warnings; API docs, Compose source checks and package build passed.
+
+| UTC log timestamp | Verified result |
+| --- | --- |
+| 13:01:15–13:01:45 | Signed 0.1.3, Firefox Release 160.0.1, original restart sequence passed |
+| 13:01:50.571 | Stopped synthetic profile archived from read-only volume; archive checksum verified |
+| 13:01:50.947 | Checksum-verified archive restored into a separate empty volume |
+| 13:01:55.290–13:01:55.461 | Recreated browser connected with same named identities and independent persistent cookie/localStorage markers |
+| 13:01:55.529 | Restored profile reports extension 0.1.3 active, signedState 2, appDisabled/userDisabled false |
+| 13:01:55.533 | Recreated signed browser on restored CI volume; original volume retained; independent markers read without reseeding |
+
+The successful exit also requires the assertions that the recreated browser has a different container ID, the same image ID, the new volume mounted at the intended CI path, and the original volume still exists. No archive bytes, session data or secret values are retained in the evidence. The test does not verify a backup from the deployed profile, restoration on Coolify, image-version rollback, the production volume or proxy, or actual ChatGPT interaction. All deployed acceptance criteria remain NOT RUN; the closed channel was not used.
+
+**Closed subcriterion:** same-image restoration of a stopped synthetic signed Release profile into a separate fresh CI volume. **Unproven:** deployed backup/restore, image rollback and the remaining real application acceptance gates.
