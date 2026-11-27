@@ -17,4 +17,23 @@ Reuse the existing visible composer anchor and bounded ancestry search. Check ex
 
 The candidate manifest is 0.1.4; the old signed 0.1.3 XPI and metadata are retained unchanged, and do not match the candidate source. The signed artifact build gate must reject the mismatch. No new signed candidate or live acceptance is claimed. Do not deploy or merge on the basis of fixture evidence.
 
-Green CI: pending verification.
+## Green regression evidence — PASS
+
+[Completed validation run 46010708287, job 140545175017](https://github.com/Neup123/kasm-chrome/actions/runs/46010708287/job/140545175017) tested commit [`a272deac656c960ff3a94d00e99b4d54e8f08741`](https://github.com/Neup123/kasm-chrome/commit/a272deac656c960ff3a94d00e99b4d54e8f08741). Job logs independently reviewed: 79/79 passed, zero failed/skipped; zero extension lint errors/warnings; API docs drift, Compose checks, unsigned extension build, exact source equality and artifact upload all passed.
+
+| Added regression test | Baseline | Candidate |
+| --- | --- | --- |
+| Editor form with sibling named effort control, Medium to High and idempotent High readback | FAIL | PASS |
+| Composer test-ID with sibling named control, Medium to High | FAIL | PASS |
+| Bare level label outside explicit composer | PASS (rejected) | PASS (rejected) |
+| Multiple named controls | PASS (rejected) | PASS (rejected) |
+| Main landmark / another editor | FAIL (generic error for other editor) | PASS (bounded lookup and specific ambiguity error) |
+| Control belonging to another form or dialog | PASS (rejected) | PASS (rejected) |
+
+CI unsigned XPI: version 0.1.4, SHA-256 `960f3aedb9171ba23f28ad5053978e941b92c78be2726e5d935d3d346b960567`, source_files_match=true, signature_entries_present=false. This identifies the particular CI build, not a signed release. The candidate extension tree `cdfa6f1c9ee0cfec7846e1a909f1e1c9a9f4bd29` differs from the signed 0.1.3 tree `6e2ab512e420e8849832cc279171ee8c4d37ab1e`. Both signed XPI and metadata Git blobs are unchanged; manifest semantic comparison confirms version is its only changed field (permissions unchanged). The existing verifier explicitly rejects differing manifest semantics or payload. No new signed candidate build or installation was attempted.
+
+## Live identification evidence boundary
+
+The only repository-grounded live observation relevant to this fix is the historical report in PR #11: a 0.1.2 request returned EFFORT_COMPOSER_NOT_FOUND on a composer with an accessible Ask ChatGPT label and without the old ID/test ID. That report is attributed, not independently reproduced here. It supports the earlier anchor fix, not the newly constructed sibling-toolbar hypothesis. There is no independently verified real fresh-conversation trigger markup, current level, click/drag result, or post-action High readback in this work. The green tests prove the specific synthetic identification defect is fixed, including rejection cases. They do not prove the actual live page has that structure or that 0.1.4 would work there.
+
+Disposition: source-level regression and evidence item complete. Live identification and interaction remain NOT RUN; gate closed. Source-matching signed 0.1.4 artifact absent from this draft. No authorization to sign, deploy, merge or retry live connections.
