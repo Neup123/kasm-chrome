@@ -52,3 +52,21 @@ Ran the repository verifier with the actual XPI, `--require-signature --metadata
 | Controlled variant: baseline with only the candidate content.js | 1 | Artifact verification failed: XPI payload differs from the reviewed source. |
 
 The two controlled variants establish that either change independently blocks reuse of the old signed XPI; relabeling its version/metadata cannot make its executable content match. These are isolated offline source comparisons, not installation or runtime tests. The verifier's explicit cryptographic-trust=false result is expected; earlier signed Firefox 0.1.3 CI remains the actual signature acceptance evidence for that version alone. No new signed 0.1.4 artifact, signed image build, real ChatGPT interaction or deployed acceptance is proven. The authenticated channel stays closed; no signing or deployment was attempted.
+
+## Independent unsigned candidate artifact receipt (2026-11-27)
+
+[Validation job 140570739023](https://github.com/Neup123/kasm-chrome/actions/runs/46018215466/job/140570739023) on commit `55c10ff32c1bebb2d556b389937129971d1cee0b` completed with 79/79 passing, no failures or skips. Downloaded [artifact 15206871717](https://github.com/Neup123/kasm-chrome/actions/runs/46018215466/artifacts/15206871717) via the repository connector and independently inspected its local bytes, rather than relying solely on the CI report.
+
+| Check | Independently observed result |
+| --- | --- |
+| Outer ZIP size | 21,476 bytes |
+| Outer SHA-256 | `482ab4ec40cf721663855cf2d475fc82bac6599cbc0dd371310f846759d5bfa6`, matches artifact metadata and job log |
+| ZIP contents | Exactly one `kasm-agent-unsigned.xpi` |
+| Inner XPI SHA-256 | `0f287c3f5c2eb011152a1691579a2167b906c2006570f04000091b901f0ad1bd`, matches job log |
+| XPI payload | Exact seven expected files, no duplicate entries; every Git blob hash matches the immutable candidate tree `cdfa6f1c9ee0cfec7846e1a909f1e1c9a9f4bd29` |
+| Manifest | Version 0.1.4; ID `kasm-agent@chabad.gr`; independent manifest semantic comparison with 0.1.3 confirms version-only change |
+| Signature | No META-INF signature entries; unsigned |
+
+The seven matched blobs are LICENSE `fb698beea6cd2d6dc5001c794325cde723428230`, background.js `b9031b035e77e1f933d529967b386226b3622ee6`, content.js `c4e3c1ffbc384c31bf51187b61232a6437c39ef4`, core.js `3a03491644edfb512ff1b3abc4cac6d3a5cdcd4a`, manifest.json `bac18e5a82a93f3319149947ba00f8d57c015320`, protocol.js `d149897d904ce57eb9f7cedc1b6ebe429de319d1`, and transport.js `041c5698c039e30d062206308aa7d588c4ee76d5`. The archive hashes identify this particular CI build; different ZIP timestamps can change a rebuild's archive hash without changing the source.
+
+**Closed:** independent unsigned-package provenance for PR #16. **Not proven:** AMO signing of 0.1.4, Firefox Release installation of that signed candidate, real fresh-conversation effort identification/High readback, or deployed acceptance. The earlier 0.1.3 signed CI evidence does not transfer to the changed source. No signed release was produced or promoted; the gate stays closed. No more evidence-only work is implied by these live-only gaps.
