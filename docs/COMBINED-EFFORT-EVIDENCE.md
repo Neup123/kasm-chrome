@@ -33,3 +33,22 @@ All 12 previously added regression tests and the original 73 tests passed in the
 ## Disposition
 
 **Closed:** synthetic regression compatibility of PRs #16 and #17 at the exact reviewed combined source. **Unproven:** any real five-level markup or label layout, live effort trigger, actual High mutation/readback, signed combined XPI or Firefox installation, deployed acceptance and image-version rollback. CI fixtures do not establish live behavior. The old signed artifact is not a matching candidate. No signing, merges, deployments or live connection attempts were made; the authenticated gate stays closed. Individual draft evidence remains historical for its exact source, and neither individual draft has been merged. The combined draft is a review candidate only.
+
+## Independent unsigned archive receipt (2026-11-27)
+
+Downloaded [artifact 15227822107](https://github.com/Neup123/kasm-chrome/actions/runs/46059206124/artifacts/15227822107) from [completed validation job 140709069811](https://github.com/Neup123/kasm-chrome/actions/runs/46059206124/job/140709069811), exact source commit `436cbd8b3dc16aa3b1b1791cec8e78992a549e91` (91/91 passing). Independently inspected local archive bytes using Python zipfile/hashlib; compared hashes with the GitHub artifact metadata, previously reviewed job log and immutable Git tree.
+
+| Check | Observed result |
+| --- | --- |
+| Outer ZIP size | 21987 bytes |
+| Outer SHA-256 | `cbdb54c42daa18daabc7b2a7a871dec242f283ba66c0fb1001dd5217f8267c34` — matches GitHub metadata |
+| Outer inventory | Exactly one `kasm-agent-unsigned.xpi`; CRC check passed |
+| XPI SHA-256 | `164ccc40613581f9dd2c2facc18886e1f1f4c5c484d08ae07a2ea857f7dc9252` — matches CI log |
+| XPI inventory | Exactly seven files, no duplicates or extra entries, CRC check passed |
+| Git blob equality | 7/7 match candidate tree `4787ac9197c370e622eca1c138fad3a80fd0881f` |
+| Manifest | 0.1.4, ID `kasm-agent@chabad.gr` |
+| Signature | Zero signature entries; unsigned |
+
+Git blob hashes calculated from actual XPI payload bytes using SHA-1 over the Git blob header plus file bytes: LICENSE `fb698beea6cd2d6dc5001c794325cde723428230`, background.js `b9031b035e77e1f933d529967b386226b3622ee6`, content.js `746c623af65bfb63891bfc57ec7f95651b8d6a62`, core.js `3a03491644edfb512ff1b3abc4cac6d3a5cdcd4a`, manifest.json `bac18e5a82a93f3319149947ba00f8d57c015320`, protocol.js `d149897d904ce57eb9f7cedc1b6ebe429de319d1`, transport.js `041c5698c039e30d062206308aa7d588c4ee76d5`. All match the repository. The archive hash identifies this particular build, not a reproducible ZIP timestamp contract.
+
+This closes the independent archive-byte evidence gap for PR #18. No installation, signing, cryptographic trust, real ChatGPT interaction or deployed acceptance is proven; the live and signing gates remain closed. The earlier CI-only package statements refer to their original builds and are retained as history.
