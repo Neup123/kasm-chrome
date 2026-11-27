@@ -1,6 +1,9 @@
 name: Sign unlisted extension
 on:
   workflow_dispatch:
+  push:
+    branches: ['sign/amo-unlisted-0.1.3-isolated']
+    paths: ['.github/workflows/sign.yml']
 permissions:
   contents: read
 concurrency:
@@ -19,6 +22,8 @@ jobs:
         with:
           node-version: '24.22.3'
           cache: npm
+      - name: Verify exact reviewed extension tree
+        run: test "$(git rev-parse HEAD:extension)" = '6e2ab512e420e8849832cc279171ee8c4d37ab1e'
       - run: npm ci --no-audit --no-fund
       - run: npm test
       - run: npm run lint:extension
