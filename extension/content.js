@@ -195,6 +195,32 @@
       });
       return levels.length && levels.every(level => level && level === levels[0]) ? levels[0] : null;
     };
+    // Only a genuinely generic trigger permits the associated-popup fallback.
+    // A conflicting or unsupported explicit label is not an unknown default.
+    const genericEffortLabel = button => {
+      const labels = [textOf(button), button.getAttribute("aria-label") || ""].map(normalized).filter(Boolean);
+      return labels.length > 0 && labels.every(label => /^(?:thinking )?effort$/i.test(label));
+    };
+    function controlledEffortId(trigger) {
+      const id = normalized(trigger.getAttribute("aria-controls") || "");
+      return id && !/\s/.test(id) ? id : null;
+    }
+    function associatedEffortPopup(trigger, id) {
+      if (!trigger.isConnected || controlledEffortId(trigger) !== id) return null;
+      const owners = Array.from(doc.querySelectorAll("[id]")).filter(el => el.id === id);
+      if (owners.length !== 1 || !visible(owners[0])) return null;
+      const popup = effortPopup();
+      return popup && (owners[0] === popup || owners[0].contains(popup)) ? popup : null;
+    }
+    function explicitSliderLevel(popup) {
+      const sliders = matches(popup, '[role="slider"],input[type="range"]');
+      if (sliders.length !== 1) return null;
+      const slider = sliders[0];
+      if (!/^(?:thinking )?effort$/i.test(normalized(slider.getAttribute("aria-label") || ""))) return null;
+      const value = normalized(slider.getAttribute("aria-valuetext") || "");
+      const level = protocol.EFFORTS.find(item => item.toLowerCase() === value.toLowerCase());
+      return level ? {slider,level} : null;
+    }
     function effortButton() {
       // ChatGPT can expose its composer solely through an accessible label:
       // neither prompt-textarea nor a composer test ID is guaranteed.
@@ -444,15 +470,40 @@
     async function setEffort(request, message) {
       chatOnly();
       const trigger = effortButton();
-      const previous = effortLabel(trigger);
+      let previous = effortLabel(trigger);
+      let popup, associatedId, initialSlider;
+      if (!previous) {
+        const unknown = () => fail("EFFORT_CURRENT_UNKNOWN", "No exact supported current effort was identified in the composer or its associated slider.");
+        if (!genericEffortLabel(trigger)) unknown();
+        associatedId = controlledEffortId(trigger);
+        if (!associatedId) unknown();
+        // Never reuse an unrelated already-open picker or open a second one.
+        if (effortPopup()) {
+          popup = associatedEffortPopup(trigger,associatedId);
+          if (!popup) unknown();
+        } else {
+          const lookup = () => associatedEffortPopup(trigger,associatedId);
+          clickElementAt(trigger,message,false,lookup);
+          popup = await waitFor(message,lookup,"EFFORT_PICKER_NOT_OPEN","The explicitly associated effort popup did not open.");
+        }
+        guard(message);
+        if (effortButton() !== trigger || !genericEffortLabel(trigger)) unknown();
+        const observed = explicitSliderLevel(popup);
+        if (!observed) unknown();
+        previous = observed.level;
+        initialSlider = observed.slider;
+      }
       if (previous === request.effort) return {effort:previous, changed:false, verified:true};
-      if (!previous) fail("EFFORT_CURRENT_UNKNOWN", "The composer does not identify its current Low, Medium, or High effort.");
-      let popup = effortPopup();
       if (!popup) {
-        clickElementAt(trigger,message,false,effortPopup);
-        popup = await waitFor(message, effortPopup, "EFFORT_PICKER_NOT_OPEN", "The effort popup did not open.");
+        popup = effortPopup();
+        if (!popup) {
+          clickElementAt(trigger,message,false,effortPopup);
+          popup = await waitFor(message, effortPopup, "EFFORT_PICKER_NOT_OPEN", "The effort popup did not open.");
+        }
       }
       const {el,y,from,to} = effortGeometry(popup, previous, request.effort);
+      if (initialSlider && !(el === initialSlider || initialSlider.contains(el)))
+        fail("EFFORT_GEOMETRY_UNVERIFIED","The identified effort track does not belong to the slider reporting the current value.");
       // Dispatch to the actual hit-tested child (usually the draggable thumb),
       // then to the same target for pointermove/up; no browser-wide input.
       const target = inspectedTarget(el,from,y);
@@ -480,8 +531,17 @@
       pointer(target,"pointerup",lastX,y,false);
       if (compatible && target.isConnected) mouse(target,"mouseup",lastX,y,false);
       await waitFor(message, () => {
-        try { return effortLabel(effortButton()) === request.effort; } catch (_) { return false; }
-      }, "EFFORT_NOT_APPLIED", "The composer label did not confirm the requested effort; inspect before retrying.");
+        try {
+          const currentTrigger = effortButton();
+          const currentLabel = effortLabel(currentTrigger);
+          if (currentLabel) return currentLabel === request.effort;
+          if (!initialSlider || currentTrigger !== trigger || !genericEffortLabel(currentTrigger)) return false;
+          const currentPopup = associatedEffortPopup(currentTrigger,associatedId);
+          if (currentPopup !== popup) return false;
+          const observed = explicitSliderLevel(currentPopup);
+          return Boolean(observed && observed.slider === initialSlider && observed.level === request.effort);
+        } catch (_) { return false; }
+      }, "EFFORT_NOT_APPLIED", "Neither the composer nor its verified associated slider confirmed the requested effort; inspect before retrying.");
       return {effort:request.effort, previous, changed:true, verified:true};
     }
     function approval(expected=null) {

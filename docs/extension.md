@@ -170,3 +170,7 @@ The supported API levels remain Low, Medium and High. The complete visible label
 ## Combined unsigned candidate
 
 The two identification corrections are evaluated together in [combined effort evidence](COMBINED-EFFORT-EVIDENCE.md). The common API remains unchanged. Prior individual evidence applies to its exact source, not automatically to the combined tree. No signing or live acceptance is authorized.
+
+## Generic Thinking effort label (combined unsigned candidate)
+
+When the uniquely identified composer control displays only Thinking effort or Effort, no default is assumed. The fallback requires exactly one explicit aria-controls ID, a unique associated open effort popup, and one visible named slider with an exact supported aria-valuetext (Low, Medium or High). A supported value is required before any drag; the verified track must belong to that slider. An unsupported or conflicting trigger label never uses this fallback. The same level returns an unchanged verified result. After a drag, only an exact composer label or the same still-associated slider's exact value confirms success. A closed popup and unchanged generic label are not proof; do not retry an uncertain mutation automatically. Missing, unsupported or ambiguous evidence fails closed. This is a synthetic fixture contract, not verified live markup. See [generic effort evidence](GENERIC-EFFORT-EVIDENCE.md). No signing, runtime verification or deployment is authorized.
