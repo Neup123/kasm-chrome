@@ -27,3 +27,9 @@ Evidence required from the new CI job:
 The post-restart fixture opens the bare internal fixture URL, without a slot parameter, so it does not reseed either marker. Successful exit requires both restart timestamp assertions and the volume identity assertions. The test uses a CI-specific explicit profile path, not the deployed acceptance profile. The log shows successful readback after both restarts; it does not prove a backup or restore, an image upgrade, a rollback, the Coolify runtime mount, external proxy availability, or authenticated ChatGPT functionality.
 
 **Closed:** signed Release restart/reconnect and fixture persistence evidence gap on disposable CI. **Still NOT RUN:** all deployed acceptance criteria, including actual isolated-stack restart/persistence and rollback, and every real ChatGPT control test. The authenticated channel remains closed. No gate retry or bypass is authorized.
+
+## Follow-up: disposable profile backup/restore rehearsal
+
+The next acceptance subcriterion is restorable profile data. The same fixture harness is extended rather than duplicated in another PR against the same integration branch. The opt-in backup step runs only on GitHub-hosted CI, after successful signed Release restart checks, with synthetic markers and no external network. It stops/removes the disposable browser, archives only its CI profile via a read-only mount, verifies the archive checksum, restores into a distinct empty volume, recreates the browser with the same image, and reuses the existing bare-URL fixture readback (no reseeding). The source volume remains present throughout the rehearsal. Archive bytes are not uploaded or logged; CI cleanup removes the temporary archive and both disposable volumes. This is same-image backup recovery, not an image downgrade, upgrade, production rollback or actual Coolify backup. No runtime application code or extension changes.
+
+Result: awaiting completed CI evidence.

@@ -2,6 +2,13 @@
 set -euo pipefail
 # Only run on a disposable CI Docker host, never the production host.
 : "${CI:?This smoke test is for disposable CI runners only}"
+# Backup/restore is deliberately restricted to fresh GitHub-hosted CI runners.
+if [ "${SIGNED_RELEASE_BACKUP_SMOKE:-0}" = 1 ]; then
+  test "${GITHUB_ACTIONS:-}" = true
+  test "${RUNNER_ENVIRONMENT:-}" = github-hosted
+  test "${SIGNED_RELEASE_SMOKE:-0}" = 1
+  test "${SIGNED_RELEASE_RESTART_SMOKE:-0}" = 1
+fi
 version=$(python3 -c 'import json; print(json.load(open("extension/manifest.json"))["version"])')
 prefix="kasm-esr-${GITHUB_RUN_ID:-$$}-${GITHUB_RUN_ATTEMPT:-1}"
 network="$prefix-net"
@@ -9,8 +16,10 @@ driver="$prefix-driver"
 browser="$prefix-firefox"
 volume="$prefix-profile"
 tmp=$(mktemp -d)
+restored_volume=
 cleanup() {
   docker rm -f "$browser" "$driver" >/dev/null 2>&1 || true
+  if [ -n "$restored_volume" ]; then docker volume rm "$restored_volume" >/dev/null 2>&1 || true; fi
   docker volume rm "$volume" >/dev/null 2>&1 || true
   docker network rm "$network" >/dev/null 2>&1 || true
   sudo rm -rf "$tmp"
@@ -46,10 +55,14 @@ docker run -d --name "$driver" --network "$network" --network-alias driver \
   --mount "type=bind,src=$tmp/key,dst=/run/secrets/driver_api_key,readonly" \
   --mount "type=bind,src=$tmp/managed,dst=/run/secrets/driver_managed_storage,readonly" \
   "$prefix-driver"
-docker run -d --name "$browser" --network "$network" --shm-size=512m \
-  --env-file "$tmp/browser.env" --env "APP_ARGS=-profile /esr-profile" --mount "type=volume,src=$volume,dst=/esr-profile" \
-  --mount "type=bind,src=$tmp/managed,dst=/usr/lib/mozilla/managed-storage/kasm-agent@chabad.gr.json,readonly" \
-  "$prefix-firefox"
+start_browser() {
+  local profile="$1"
+  docker run -d --name "$browser" --network "$network" --shm-size=512m \
+    --env-file "$tmp/browser.env" --env "APP_ARGS=-profile /esr-profile" --mount "type=volume,src=$profile,dst=/esr-profile" \
+    --mount "type=bind,src=$tmp/managed,dst=/usr/lib/mozilla/managed-storage/kasm-agent@chabad.gr.json,readonly" \
+    "$prefix-firefox"
+}
+start_browser "$volume"
 if [ "${SIGNED_RELEASE_SMOKE:-0}" = 1 ]; then
   browser_version=$(docker exec "$browser" firefox --version)
   printf '%s\n' "$browser_version"
@@ -139,4 +152,77 @@ PY
   echo 'PASS: signed Firefox Release restart, same isolated CI profile and fixture persistence'
 else
   echo 'PASS: Kasm ESR restart, bridge reconnect and isolated fixture persistence'
+fi
+
+# Reuse the already-seeded synthetic fixture and readback helper; no live profile.
+if [ "${SIGNED_RELEASE_BACKUP_SMOKE:-0}" = 1 ]; then
+  original_id=$(docker inspect --format '{{.Id}}' "$browser")
+  original_image=$(docker inspect --format '{{.Image}}' "$browser")
+  test "$(profile_mount)" = "$volume"
+  docker stop --time 30 "$browser" >/dev/null
+  test "$(docker inspect --format '{{.State.Running}}' "$browser")" = false
+  docker rm "$browser" >/dev/null
+
+  # Capture the stopped, fresh CI profile only, not the home or managed config.
+  # The source mount is read-only and the archive is never published.
+  backup_dir="$tmp/profile-backup"
+  mkdir -m 700 "$backup_dir"
+  docker run --rm --network none --user root --entrypoint /bin/sh \
+    --mount "type=volume,src=$volume,dst=/source,readonly" \
+    --mount "type=bind,src=$backup_dir,dst=/archive" "$prefix-firefox" -ec '
+      umask 077
+      test -s /source/containers.json
+      test -s /source/cookies.sqlite
+      tar -C /source -cpf /archive/profile.tar .
+      test -s /archive/profile.tar
+      cd /archive
+      sha256sum profile.tar > profile.sha256
+      sha256sum -c profile.sha256 >/dev/null
+      tar -tf profile.tar >/dev/null
+    '
+  echo 'PASS: stopped synthetic profile archived from read-only volume; archive checksum verified'
+
+  candidate="$prefix-restored-profile"
+  if docker volume inspect "$candidate" >/dev/null 2>&1; then
+    echo 'Restore target already exists; refusing to overwrite'
+    exit 1
+  fi
+  docker volume create "$candidate" >/dev/null
+  restored_volume="$candidate"
+  test "$restored_volume" != "$volume"
+  docker run --rm --network none --user root --entrypoint /bin/sh \
+    --mount "type=volume,src=$restored_volume,dst=/restore,volume-nocopy" \
+    --mount "type=bind,src=$backup_dir,dst=/archive,readonly" "$prefix-firefox" -ec '
+      test -z "$(ls -A /restore)"
+      cd /archive
+      sha256sum -c profile.sha256 >/dev/null
+      tar --numeric-owner --same-permissions -C /restore -xpf profile.tar
+      test -s /restore/containers.json
+      test -s /restore/cookies.sqlite
+      test "$(stat -c %u /restore)" = 1000
+    '
+  echo 'PASS: checksum-verified archive restored into a separate empty volume'
+
+  start_browser "$restored_volume"
+  test "$(docker inspect --format '{{.Id}}' "$browser")" != "$original_id"
+  test "$(docker inspect --format '{{.Image}}' "$browser")" = "$original_image"
+  test "$(profile_mount)" = "$restored_volume"
+  docker volume inspect "$volume" >/dev/null
+  docker exec -i "$driver" node - "$version" --signed-release --after-restart < scripts/esr-smoke.js
+  docker exec -i "$browser" python3 - "$version" <<'PY'
+import json, pathlib, sys, time
+path = pathlib.Path('/esr-profile/extensions.json')
+for _ in range(45):
+    try:
+        addon=next(a for a in json.loads(path.read_text())['addons'] if a['id']=='kasm-agent@chabad.gr')
+        if addon.get('version') == sys.argv[1] and addon.get('active') is True and addon.get('signedState',-999) >= 2 and not addon.get('appDisabled') and not addon.get('userDisabled'):
+            print('PASS: restored profile reports active signed extension',json.dumps({k:addon.get(k) for k in ('id','version','active','signedState','appDisabled','userDisabled')}))
+            break
+    except (OSError,ValueError,KeyError,StopIteration):
+        pass
+    time.sleep(1)
+else:
+    raise SystemExit('Restored Firefox profile did not report active trusted signed extension')
+PY
+  echo 'PASS: recreated signed browser on restored CI volume; original volume retained; independent markers read without reseeding'
 fi
