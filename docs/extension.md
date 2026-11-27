@@ -158,3 +158,7 @@ Effort drag and approval use the same hit-test primitives; the approval
 options trigger is hit near its right edge and the verified conversation
 menu item is hit-tested before activation. These are synthetic events
 (`isTrusted=false`); isolated real application verification remains required.
+
+## Fresh-composer effort identification (unsigned 0.1.4 candidate)
+
+When the visible editor has an explicit form or composer test-ID wrapper but the effort control is not inside that wrapper, the driver can check the same bounded local ancestry already used for accessible composers. Beyond the explicit wrapper, only a uniquely identified button with an explicit effort aria-label is accepted. A bare level label, another editor, ambiguous controls, a different form/dialog, or a conversation landmark cannot be used to guess the trigger. The existing current-level verification, hit-tested drag and resulting composer-label verification remain unchanged; an unknown current level is not guessed. See [fresh-composer evidence](FRESH-COMPOSER-EFFORT-EVIDENCE.md). No authenticated ChatGPT acceptance is established by these fixtures.

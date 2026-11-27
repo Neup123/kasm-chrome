@@ -322,3 +322,75 @@ test('interactive map includes role-less drag affordances, implicit roles and ex
   const r=await h.command('tabs.mapInteractive');
   assert.equal(r.ok,true);assert.deepEqual(r.result.elements.map(e=>[e.role,e.text]),[['button','Button'],[null,'Track']]);h.close();
 });
+
+function freshEffortHarness(markup) {
+  const h=harness(markup);
+  const place=layout(h);
+  const button=h.document.querySelector('#effort');
+  let opened=0;
+  place(button,10,100,100,20);
+  button.onclick=()=>{
+    opened++;
+    const popup=h.document.createElement('section');popup.dataset.state='open';
+    popup.innerHTML='<div id="track"></div><div><span>Low</span><span>Medium</span><span>High</span></div>';
+    h.document.body.append(popup);
+    const track=popup.querySelector('#track');place(track,10,10,200,8);
+    popup.querySelectorAll('span').forEach((el,i)=>place(el,i*90+10,30,20,15));
+    track.addEventListener('pointerup',e=>{if(e.clientX>170)button.textContent='High';popup.remove();});
+  };
+  return {...h,opened:()=>opened};
+}
+test('fresh composer with an editor form and sibling named effort control verifies High',async()=>{
+  const h=freshEffortHarness('<main><section><form><div contenteditable="true" aria-label="Ask ChatGPT"></div></form><div><button id="effort" type="button" aria-label="Thinking effort">Medium</button></div></section></main>');
+  try {
+    const reply=await h.command('tabs.setEffort',{effort:'High'});
+    assert.deepEqual(reply.result,{effort:'High',previous:'Medium',changed:true,verified:true},JSON.stringify(reply));
+    assert.equal(h.opened(),1);
+    assert.deepEqual((await h.command('tabs.setEffort',{effort:'High'})).result,{effort:'High',changed:false,verified:true});
+    assert.equal(h.opened(),1);
+  } finally {h.close();}
+});
+test('fresh explicit composer test ID with sibling named effort control verifies High',async()=>{
+  const h=freshEffortHarness('<main><section><div data-testid="composer"><div contenteditable="true" aria-label="Ask ChatGPT"></div></div><div><button id="effort" aria-label="Thinking effort">Medium</button></div></section></main>');
+  try {
+    const reply=await h.command('tabs.setEffort',{effort:'High'});
+    assert.deepEqual(reply.result,{effort:'High',previous:'Medium',changed:true,verified:true},JSON.stringify(reply));
+    assert.equal(h.opened(),1);
+  } finally {h.close();}
+});
+test('fresh explicit composer fallback rejects a bare level label',async()=>{
+  const h=freshEffortHarness('<main><section><form><div contenteditable="true" aria-label="Ask ChatGPT"></div></form><button id="effort">High</button></section></main>');
+  try {
+    assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error.code,'EFFORT_PICKER_NOT_UNIQUE');
+    assert.equal(h.opened(),0);
+  } finally {h.close();}
+});
+test('fresh explicit composer fallback rejects multiple named effort controls',async()=>{
+  const h=freshEffortHarness('<main><section><form><div contenteditable="true" aria-label="Ask ChatGPT"></div></form><button id="effort" aria-label="Thinking effort">Medium</button><button aria-label="Thinking effort">High</button></section></main>');
+  try {
+    assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error.code,'EFFORT_PICKER_NOT_UNIQUE');
+    assert.equal(h.opened(),0);
+  } finally {h.close();}
+});
+test('fresh explicit composer fallback never crosses a main landmark or another editor',async()=>{
+  const h=freshEffortHarness('<main><section><form><div contenteditable="true" aria-label="Ask ChatGPT"></div></form></section><button id="effort" aria-label="Thinking effort">High</button></main>');
+  try {
+    assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error.code,'EFFORT_PICKER_NOT_UNIQUE');
+    const section=h.document.querySelector('section');
+    section.append(h.document.querySelector('#effort'));
+    const other=h.document.createElement('textarea');section.append(other);
+    assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error.code,'EFFORT_COMPOSER_AMBIGUOUS');
+    assert.equal(h.opened(),0);
+  } finally {h.close();}
+});
+test('fresh explicit composer fallback rejects controls in another form or dialog',async()=>{
+  const h=freshEffortHarness('<main><section><form><div contenteditable="true" aria-label="Ask ChatGPT"></div></form><form><button id="effort" aria-label="Thinking effort">High</button></form></section></main>');
+  try {
+    assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error.code,'EFFORT_PICKER_NOT_UNIQUE');
+    const other=h.document.querySelectorAll('form')[1];
+    const dialog=h.document.createElement('div');dialog.setAttribute('role','dialog');
+    dialog.append(h.document.querySelector('#effort'));other.replaceWith(dialog);
+    assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error.code,'EFFORT_PICKER_NOT_UNIQUE');
+    assert.equal(h.opened(),0);
+  } finally {h.close();}
+});
