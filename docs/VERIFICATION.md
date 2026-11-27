@@ -4,18 +4,27 @@
 
 The isolated integration branch `test/release-0.1.2-coolify-acceptance` contains signed 0.1.3, despite its historical name. See [current evidence and exact provenance](RELEASE-ACCEPTANCE-EVIDENCE.md) and [isolated stack scope](RELEASE-ACCEPTANCE.md). The historical 0.1.0 record below is retained for traceability, not current release status.
 
-| Original acceptance criterion | Proven by repository/CI evidence | Still unproven on deployed isolated stack |
-| --- | --- | --- |
-| Policy installation | Signed 0.1.3 active in stock Firefox Release 160.0.1 in CI | Actual installed extension and ready bridge |
-| Two named containers visible in desktop UI | Named contexts created via CI API | Actual desktop display and icon/color |
-| ChatGPT tab in named context | Fresh internal fixture tab created in isolated CI | Actual ChatGPT tab and named-context binding |
-| Read/type/send | Internal fixture type/click/readback in real Firefox | Authenticated composer, real conversation send/readback |
-| Reconnect after restart | Earlier ESR and [signed Release restart fixture job 140511960304](https://github.com/Neup123/kasm-chrome/actions/runs/46000898359/job/140511960304): signed Release disposable driver/browser restart, reconnect and marker persistence | Current deployed stack reconnect and persistence |
-| Independent sessions | Signed Release fixture cookies and localStorage isolated, including both disposable CI restarts | Two actual deployed test contexts |
-| Proxy authentication | Isolated gateway CI rejects unauthorized browser/API access | Live HTTPS routing and authentication; production Authelia explicitly outside scope |
-| Rollback and volume preservation | Separate source-defined volume, unchanged volume identity through CI restart, and same-image backup/restore to a fresh CI volume ([signed backup/restore fixture job 140520386269](https://github.com/Neup123/kasm-chrome/actions/runs/46003376739/job/140520386269)) | Runtime mount identity, backup/restore and rollback demonstration |
+| # | Original acceptance criterion | Verified CI evidence | Deployed acceptance status and missing receipt |
+| --- | --- | --- | --- |
+| 1 | Policy installation | Stock Firefox Release 160.0.1, active signed 0.1.3 (signedState 2); ready bridge ([gateway/fixture CI](https://github.com/Neup123/kasm-chrome/actions/runs/45971188640/job/140411752357), [repeat signed restart/restore CI](https://github.com/Neup123/kasm-chrome/actions/runs/46006819682/job/140531948215)) | NOT RUN — actual installed version, signature state and ready bridge |
+| 2 | Two named containers visible in desktop UI | Distinct named contextual identities via API, same identities after restarts/restore ([repeat signed restart/restore CI](https://github.com/Neup123/kasm-chrome/actions/runs/46006819682/job/140531948215)); desktop presentation not tested | NOT RUN — desktop visibility and color/icon |
+| 3 | ChatGPT tab in named context | Fresh named acceptance tab, fixture=true in bootstrap log ([gateway/fixture CI](https://github.com/Neup123/kasm-chrome/actions/runs/45971188640/job/140411752357)); two internal fixture contexts in [repeat signed restart/restore CI](https://github.com/Neup123/kasm-chrome/actions/runs/46006819682/job/140531948215) | NOT RUN — actual ChatGPT tab and container marker |
+| 4 | Read/type/send | Internal fixture type, click and readback plus Escape and cross-context rejection ([repeat signed restart/restore CI](https://github.com/Neup123/kasm-chrome/actions/runs/46006819682/job/140531948215)); synthetic DOM tests for real-UI control logic | NOT RUN — authenticated composer and observable real conversation result |
+| 5 | Reconnect after restart | Changed disposable driver/browser start timestamps; ready bridge and unchanged named identities after both restarts ([repeat signed restart/restore CI](https://github.com/Neup123/kasm-chrome/actions/runs/46006819682/job/140531948215)) | NOT RUN — deployed app restart and subsequent authorized command |
+| 6 | Independent sessions | Two fixture contexts with independent cookie/localStorage markers; both recovered without reseeding after restarts and restore ([repeat signed restart/restore CI](https://github.com/Neup123/kasm-chrome/actions/runs/46006819682/job/140531948215)) | NOT RUN — two actual deployed test contexts and readback |
+| 7 | Proxy authentication | Internal HTTP gateway port 8081: unauthenticated root, API base and status return 401; authenticated status version 0.1.3 and ready bridge ([gateway/fixture CI](https://github.com/Neup123/kasm-chrome/actions/runs/45971188640/job/140411752357)) | NOT RUN — external TLS/port 1004 and actual authorized browser/driver routing; original production Authelia 302 requirement outside isolated scope |
+| 8 | Rollback and volume preservation | Source-scoped topology ([gateway/fixture CI](https://github.com/Neup123/kasm-chrome/actions/runs/45971188640/job/140411752357)); unchanged CI volume through restart; stopped profile archive, checksum, distinct restored volume, same-image recreation and persistent markers ([repeat signed restart/restore CI](https://github.com/Neup123/kasm-chrome/actions/runs/46006819682/job/140531948215)) | NOT RUN — actual deployed mount identity, private backup restore, prior image/configuration rollback, post-rollback health; no image-version rollback tested |
 
-All eight original deployed acceptance criteria remain NOT RUN in the current authenticated live acceptance scope. Real control-specific tests also remain NOT RUN. The completed deployment receipt does not certify runtime health; no new live probe or deployment is authorized. The main branch artifact promotion in #14 does not establish any production runtime change.
+All eight deployed acceptance criteria remain NOT RUN (0/8 verified). This is a distinction between the strength of the CI evidence and the absence of the required deployed receipts, not an assertion that the deployed application failed. The original production criteria are retained historically, and production is outside the current scope. The completed deployment receipt and independent repository-level promotion #14 do not certify runtime health. The actual ChatGPT control tests remain NOT RUN; the authenticated channel is closed, no new probe or deployment is authorized.
+
+### Final documentation-commit verification
+
+- [repeat signed restart/restore CI](https://github.com/Neup123/kasm-chrome/actions/runs/46006819682/job/140531948215): PASS on `a398d56564f22f55ced6322b2956c24bbd305c47`, reproducing both restarts and backup restoration in stock signed Firefox Release; log readback through 13:25:44 UTC.
+- [test draft validation](https://github.com/Neup123/kasm-chrome/actions/runs/46006819676/job/140531948357): PASS on the same commit, 73/73 tests, zero failed/skipped; zero extension lint errors/warnings; API docs, Compose source controls and unsigned package verification.
+- [documentation draft validation](https://github.com/Neup123/kasm-chrome/actions/runs/46006860933/job/140532086072): PASS on `4caef384da8de71988ab22c27b936b8b3f47fb64`, same 73/73 tests and full validation.
+- The gateway evidence is specifically internal HTTP on port 8081; it does not demonstrate external HTTPS, a successful authorized KasmVNC GUI session, or port 80 live reachability. CI bootstraps the fixture URL rather than ChatGPT. These are limitations, not missing source-documentation entries.
+
+The completed evidence closes the repository/CI reconciliation item, not the live acceptance gate.
 
 ## Historical record: release 0.1.0 (2026-11-22)
 
@@ -72,7 +81,7 @@ metadata hash mismatches are rejected by the deployment artifact gate. The
 signature-structure test uses a fake fixture and asserts that it **never** claims
 cryptographic trust.
 
-## Live acceptance: 0 of 8 proven
+## Historical live acceptance record (0.1.0; superseded by current matrix above)
 
 | # | Requested live evidence | Status | Missing evidence |
 | --- | --- | --- | --- |
