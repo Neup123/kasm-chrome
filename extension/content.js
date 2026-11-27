@@ -198,8 +198,29 @@
       if (anchors.length !== 1) fail("EFFORT_COMPOSER_AMBIGUOUS", "Multiple visible ChatGPT composer anchors were found.");
       const composer = anchors[0];
       const explicitRoot = composer.closest('[data-testid="composer"],form');
-      function candidates(root) {
+      const boundary = 'html,body,main,article,nav,aside,header,footer,[role=main],[role=dialog],[role=log],[role=feed],[data-message-author-role]';
+      const editorSelector = 'textarea,[contenteditable="true"],[contenteditable="plaintext-only"],[contenteditable=""]';
+      function assertSingleEditor(root) {
+        const otherEditors = matches(root,editorSelector).filter(el=>el!==composer && !composer.contains(el) && !el.contains(composer));
+        if (otherEditors.length) fail("EFFORT_COMPOSER_AMBIGUOUS", "The local composer wrapper contains another visible editor.");
+      }
+      function candidates(root, siblingOnly=false) {
         const buttons = matches(root, "button,[role=button]");
+        if (siblingOnly) {
+          // A fresh composer may render its toolbar outside its explicit editor
+          // form/test-ID wrapper. Outside that wrapper require an explicit
+          // effort accessible label, not a bare Low/Medium/High text match.
+          return buttons.filter(button => {
+            if (explicitRoot.contains(button) || !/^(?:thinking )?effort(?:\s*:\s*(?:Low|Medium|High))?$/i.test(normalized(button.getAttribute("aria-label") || ""))) return false;
+            if (button.form && !button.form.contains(composer)) return false;
+            // Do not select controls belonging to another form, composer,
+            // dialog, conversation landmark or editable subtree.
+            for (let node=button; node && node!==root; node=node.parentElement) {
+              if (node.matches(boundary+',form,[data-testid="composer"],'+editorSelector)) return false;
+            }
+            return true;
+          });
+        }
         const named = buttons.filter(button => {
           const name = normalized((button.getAttribute("aria-label") || "") + " " + (button.getAttribute("data-testid") || "") + " " + textOf(button));
           return /effort|thinking/i.test(name) && (effortLabel(button) || /effort/i.test(name));
@@ -209,17 +230,20 @@
         return [...new Set([...named,...exact])];
       }
       if (explicitRoot) {
-        return unique(candidates(explicitRoot), "EFFORT_PICKER_NOT_UNIQUE", "No unique thinking-effort control was found in the composer.");
+        assertSingleEditor(explicitRoot);
+        const found = candidates(explicitRoot);
+        if (found.length) return unique(found, "EFFORT_PICKER_NOT_UNIQUE", "No unique thinking-effort control was found in the composer.");
+        // Only an empty explicit scope permits the stricter sibling fallback.
+        // An ambiguous explicit scope must fail without widening the search.
       }
-      // For an unlabeled wrapper, walk only the local composer ancestry.
-      // Never search an entire conversation, main region, or document for
-      // a button labelled High/Medium/Low.
+      // Walk at most six local composer ancestors, even with an explicit root.
+      // Never search an entire conversation, main region, or document.
       let root = composer.parentElement;
       for (let depth = 0; root && depth < 6; depth++, root = root.parentElement) {
-        if (root.matches('html,body,main,article,nav,aside,header,footer,[role=main],[role=dialog],[role=log],[role=feed],[data-message-author-role]')) break;
-        const otherEditors = matches(root,'textarea,[contenteditable="true"],[contenteditable="plaintext-only"],[contenteditable=""]').filter(el=>el!==composer && !composer.contains(el) && !el.contains(composer));
-        if (otherEditors.length) fail("EFFORT_COMPOSER_AMBIGUOUS", "The local composer wrapper contains another visible editor.");
-        const found = candidates(root);
+        if (root.matches(boundary)) break;
+        if (explicitRoot && (root===explicitRoot || explicitRoot.contains(root))) continue;
+        assertSingleEditor(root);
+        const found = candidates(root,Boolean(explicitRoot));
         if (found.length) return unique(found, "EFFORT_PICKER_NOT_UNIQUE", "Multiple thinking-effort controls were found in the local composer wrapper.");
       }
       fail("EFFORT_PICKER_NOT_UNIQUE", "No unique thinking-effort control was found near the accessible composer anchor.");

@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Kasm Container Agent",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Enterprise-managed browser automation for ChatGPT tabs in named Firefox containers via a private local driver.",
   "permissions": [
     "contextualIdentities",
