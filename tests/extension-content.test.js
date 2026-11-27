@@ -232,6 +232,41 @@ test('effort picker opens, uses role-less drag track and verifies composer label
   assert.equal(r.ok,true,JSON.stringify(r));assert.equal(r.result.verified,true);
   assert.equal((await h.command('tabs.setEffort',{effort:'High'})).result.changed,false);h.close();
 });
+test('accessible Ask ChatGPT composer without form or test ID opens picker and verifies drag',async()=>{
+  const h=harness('<main><div><div><div contenteditable="true" aria-label="Ask ChatGPT"></div></div><div><button type="button" aria-label="Thinking effort">Medium</button></div></div></main>');
+  const button=h.document.querySelector('button');
+  const place=layout(h);place(button,10,100,100,20);
+  button.onclick=()=>{
+    const popup=h.document.createElement('section');popup.dataset.state='open';
+    popup.innerHTML='<div id="track"></div><div><span>Low</span><span>Medium</span><span>High</span></div>';
+    h.document.body.append(popup);
+    const track=popup.querySelector('#track');place(track,10,10,200,8);
+    popup.querySelectorAll('span').forEach((e,i)=>place(e,i*90+10,30,20,15));
+    track.onpointerup=null;
+    track.addEventListener('pointerup',e=>{if(e.clientX>170)button.textContent='High';popup.remove();});
+  };
+  const r=await h.command('tabs.setEffort',{effort:'High'});
+  assert.equal(r.ok,true,JSON.stringify(r));assert.equal(r.result.verified,true);
+  assert.equal((await h.command('tabs.setEffort',{effort:'High'})).result.changed,false);h.close();
+});
+test('accessible composer rejects multiple visible anchors without clicking',async()=>{
+  const h=harness('<div><div contenteditable="true" aria-label="Ask ChatGPT"></div><div contenteditable="true" aria-label="Ask ChatGPT"></div><button aria-label="Thinking effort">High</button></div>');
+  let clicks=0;h.document.querySelector('button').onclick=()=>clicks++;
+  assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error.code,'EFFORT_COMPOSER_AMBIGUOUS');
+  assert.equal(clicks,0);h.close();
+});
+test('accessible composer ignores hidden duplicates and never scans main for unrelated effort labels',async()=>{
+  const h=harness('<main><div hidden contenteditable="true" aria-label="Ask ChatGPT"></div><div><div contenteditable="true" aria-label="Ask ChatGPT"></div></div><button aria-label="Thinking effort">High</button></main>');
+  let clicks=0;h.document.querySelector('button').onclick=()=>clicks++;
+  assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error.code,'EFFORT_PICKER_NOT_UNIQUE');
+  assert.equal(clicks,0);h.close();
+});
+test('accessible composer rejects ambiguous local controls and accepts hidden duplicate anchor',async()=>{
+  const h=harness('<div><div hidden id="prompt-textarea"></div><div contenteditable="true" aria-label="Ask ChatGPT"></div><button aria-label="Thinking effort">High</button><button aria-label="Thinking effort">Medium</button></div>');
+  assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error.code,'EFFORT_PICKER_NOT_UNIQUE');
+  h.document.querySelectorAll('button')[1].remove();
+  assert.deepEqual((await h.command('tabs.setEffort',{effort:'High'})).result,{effort:'High',changed:false,verified:true});h.close();
+});
 test('ChatGPT-only controls fail on fixture, probes remain read-only',async()=>{
   const h=harness('<main>fixture</main>','http://driver:8080/fixtures/session');
   assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error.code,'URL_FORBIDDEN');

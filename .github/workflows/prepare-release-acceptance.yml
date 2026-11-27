@@ -1,42 +1,58 @@
-name: Prepare signed Release acceptance source
+name: Verify and promote signed Release 0.1.3 acceptance
 on:
   push:
     branches: ['test/release-0.1.2-coolify-acceptance']
-    paths: ['.github/workflows/prepare-release-acceptance.yml','docker-compose.release-acceptance.yml','firefox/acceptance-gateway.conf']
+    paths: ['.github/workflows/prepare-release-acceptance.yml','docker-compose.release-acceptance.yml','firefox/acceptance-gateway.conf','scripts/acceptance-bootstrap.js']
 permissions:
   contents: write
   actions: read
 concurrency:
-  group: prepare-release-acceptance-0.1.2
+  group: prepare-release-acceptance-0.1.3
   cancel-in-progress: false
 jobs:
   prepare:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
-      - name: Verify signed source tree and artifact
+      - name: Wait for existing protected signing run
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          test "$(git rev-parse HEAD:extension)" = '28bd883ac31896bc4bdcf5b20a17842adec9cd02'
-          gh run download 45885831204 --repo Neup123/kasm-chrome --name kasm-agent-signed --dir "$RUNNER_TEMP/kasm-signed"
-          cd "$RUNNER_TEMP/kasm-signed"
-          echo 'f0d295600785f717f739bd9cffe8b2418e4d1b81af59dfc445201d78a3ea1c7f  kasm-agent-signed.xpi' | sha256sum -c -
-          cd "$GITHUB_WORKSPACE"
-          python3 scripts/verify-xpi.py "$RUNNER_TEMP/kasm-signed/kasm-agent-signed.xpi" --require-signature --metadata "$RUNNER_TEMP/kasm-signed/signed-artifact.json"
-      - name: Validate isolated Compose source (no deployment)
+          test "$(git rev-parse HEAD:extension)" = '6e2ab512e420e8849832cc279171ee8c4d37ab1e'
+          for i in $(seq 1 100); do
+            state=$(gh api repos/Neup123/kasm-chrome/actions/runs/45965157214 --jq '.status')
+            if [ "$state" = completed ]; then break; fi
+            sleep 10
+          done
+          test "$(gh api repos/Neup123/kasm-chrome/actions/runs/45965157214 --jq '.conclusion')" = success
+          test "$(gh api repos/Neup123/kasm-chrome/actions/runs/45965157214 --jq '.head_sha')" = f1fb518f2fd69937578f67869fb09bac93c2b3aa
+      - name: Independently verify exact signed package
         env:
-          ACCEPTANCE_VNC_PASSWORD: synthetic-ci-not-a-runtime-credential
-          ACCEPTANCE_DRIVER_API_KEY: synthetic-ci-not-a-runtime-credential
+          GH_TOKEN: ${{ github.token }}
         run: |
+          gh run download 45965157214 --repo Neup123/kasm-chrome --name kasm-agent-signed --dir "$RUNNER_TEMP/kasm-signed"
+          python3 scripts/verify-xpi.py "$RUNNER_TEMP/kasm-signed/kasm-agent-signed.xpi" --require-signature --metadata "$RUNNER_TEMP/kasm-signed/signed-artifact.json"
+          test "$(python3 -c 'import json; print(json.load(open("extension/manifest.json"))["version"])')" = 0.1.3
+          cp "$RUNNER_TEMP/kasm-signed/kasm-agent-signed.xpi" artifacts/kasm-agent-signed.xpi
+          cp "$RUNNER_TEMP/kasm-signed/signed-artifact.json" artifacts/signed-artifact.json
+      - name: Check stock Firefox Release accepts the signed artifact
+        env:
+          SIGNED_RELEASE_SMOKE: '1'
+        run: bash scripts/run-esr-smoke.sh
+      - name: Validate and test isolated acceptance stack with synthetic credentials
+        run: |
+          export SERVICE_PASSWORD_ACCEPTANCEVNC="$(openssl rand -hex 16)"
+          export SERVICE_HEX_64_ACCEPTANCEAPI="$(openssl rand -hex 32)"
+          export ACCEPTANCE_CI_FIXTURE=1
+          export COMPOSE_PROJECT_NAME="kasm-acceptance-ci-${GITHUB_RUN_ID}"
+          trap 'docker compose -f docker-compose.release-acceptance.yml down -v --remove-orphans' EXIT
           docker compose -f docker-compose.release-acceptance.yml config --quiet
           docker compose -f docker-compose.release-acceptance.yml config --format json > "$RUNNER_TEMP/acceptance-compose.json"
           python3 - "$RUNNER_TEMP/acceptance-compose.json" <<'PY'
           import json, sys
-          c=json.load(open(sys.argv[1]))
-          s=c['services']
-          assert set(s)=={'init','firefox','driver','gateway'}
+          c=json.load(open(sys.argv[1])); s=c['services']
+          assert set(s)=={'init','firefox','driver','gateway','bootstrap'}
           assert all(not x.get('ports') for x in s.values())
           assert all(not x.get('external') for x in c['networks'].values())
           assert all(not x.get('external') for x in c['volumes'].values())
@@ -45,19 +61,23 @@ jobs:
           assert s['init']['network_mode']=='none'
           assert set(s['firefox']['networks'])=={'acceptance-private','acceptance-egress'}
           assert set(s['gateway']['networks'])=={'acceptance-private','acceptance-front'}
+          assert set(s['bootstrap']['networks'])=={'acceptance-private'}
           assert s['firefox']['build']['dockerfile']=='firefox/Dockerfile'
           assert any(v['source']=='acceptance-profile' and v['target']=='/home/kasm-user' for v in s['firefox']['volumes'])
-          assert s['driver']['secrets'][0]['source']=='acceptance_driver_api_key'
-          print('PASS: isolated Compose topology, signed Firefox recipe, no shared resources or host ports')
+          print('PASS: isolated topology, signed Firefox, no shared resources or host ports')
           PY
-      - name: Promote verified signed XPI and metadata only to acceptance branch
+          docker compose -f docker-compose.release-acceptance.yml up -d --build
+          id=$(docker compose -f docker-compose.release-acceptance.yml ps -aq bootstrap)
+          test -n "$id"
+          timeout 180 docker wait "$id" > "$RUNNER_TEMP/bootstrap-exit"
+          docker logs "$id"
+          test "$(cat "$RUNNER_TEMP/bootstrap-exit")" = 0
+      - name: Promote verified package only to acceptance branch
         run: |
           test "$(git branch --show-current)" = 'test/release-0.1.2-coolify-acceptance'
-          cp "$RUNNER_TEMP/kasm-signed/kasm-agent-signed.xpi" artifacts/kasm-agent-signed.xpi
-          cp "$RUNNER_TEMP/kasm-signed/signed-artifact.json" artifacts/signed-artifact.json
           git add -f artifacts/kasm-agent-signed.xpi artifacts/signed-artifact.json
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m 'Promote exact AMO-signed 0.1.2 to isolated acceptance branch'
+          git commit -m 'Promote verified AMO-signed 0.1.3 to isolated acceptance branch only'
           git push origin HEAD:refs/heads/test/release-0.1.2-coolify-acceptance

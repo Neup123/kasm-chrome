@@ -6,8 +6,13 @@ services:
     user: "0:0"
     network_mode: none
     restart: "no"
+    environment:
+      ACCEPTANCE_API: ${SERVICE_HEX_64_ACCEPTANCEAPI:?generated acceptance API key required}
+      ACCEPTANCE_VNC: ${SERVICE_PASSWORD_ACCEPTANCEVNC:?generated acceptance VNC credential required}
     volumes:
       - acceptance-managed:/managed
+      - acceptance-api:/api
+      - acceptance-gateway-auth:/auth
     command:
       - node
       - -e
@@ -15,11 +20,24 @@ services:
         const fs = require('node:fs');
         const crypto = require('node:crypto');
         const path = '/managed/kasm-agent@chabad.gr.json';
-        if (fs.existsSync(path)) process.exit(0);
-        const value = JSON.stringify({name:'kasm-agent@chabad.gr',description:'Isolated Release acceptance',type:'storage',data:{wsUrl:'ws://driver:8080/ws',wsToken:crypto.randomBytes(32).toString('base64url')}});
-        fs.writeFileSync(path+'.tmp', value, {mode:0o400});
-        fs.chownSync(path+'.tmp',1000,1000);
-        fs.renameSync(path+'.tmp',path);
+        const api=process.env.ACCEPTANCE_API, vnc=process.env.ACCEPTANCE_VNC;
+        if (!/^[A-Za-z0-9_-]{43,256}$/.test(api||'') || !/^[A-Za-z0-9]{24,128}$/.test(vnc||'') || api===vnc)
+          throw new Error('Independent generated credentials missing or invalid');
+        function write(target,value,uid=1000,mode=0o400) {
+          fs.writeFileSync(target+'.tmp',value,{mode});
+          fs.chmodSync(target+'.tmp',mode);
+          fs.chownSync(target+'.tmp',uid,uid);
+          fs.renameSync(target+'.tmp',target);
+        }
+        if (!fs.existsSync(path)) {
+          const token=crypto.randomBytes(32).toString('base64url');
+          write(path,JSON.stringify({name:'kasm-agent@chabad.gr',description:'Isolated Release acceptance',type:'storage',data:{wsUrl:'ws://driver:8080/ws',wsToken:token}}));
+        }
+        if (JSON.parse(fs.readFileSync(path,'utf8')).data.wsToken===api) throw new Error('API and WS credentials must differ');
+        write('/api/driver_api_key',api);
+        const salt=crypto.randomBytes(16);
+        const digest=crypto.createHash('sha1').update(vnc).update(salt).digest();
+        write('/auth/htpasswd','kasm_user:{SSHA}'+Buffer.concat([digest,salt]).toString('base64')+'\n',0,0o444);
     labels:
       traefik.enable: "false"
   firefox:
@@ -27,8 +45,8 @@ services:
       context: .
       dockerfile: firefox/Dockerfile
     environment:
-      VNC_PW: ${ACCEPTANCE_VNC_PASSWORD:?independent acceptance VNC credential required}
-      LAUNCH_URL: https://chatgpt.com/
+      VNC_PW: ${SERVICE_PASSWORD_ACCEPTANCEVNC:?generated acceptance VNC credential required}
+      LAUNCH_URL: about:blank
     volumes:
       - acceptance-profile:/home/kasm-user
       - acceptance-managed:/usr/lib/mozilla/managed-storage:ro
@@ -52,12 +70,7 @@ services:
       DRIVER_API_KEY_FILE: /run/secrets/driver_api_key
     volumes:
       - acceptance-managed:/run/managed:ro
-    secrets:
-      - source: acceptance_driver_api_key
-        target: driver_api_key
-        uid: "1000"
-        gid: "1000"
-        mode: 0400
+      - acceptance-api:/run/secrets:ro
     expose: ["8080"]
     user: "1000:1000"
     cap_drop: [ALL]
@@ -73,20 +86,36 @@ services:
       traefik.enable: "false"
   gateway:
     image: nginx:1.28-alpine
+    environment:
+      SERVICE_URL_GATEWAY_8081: /
     volumes:
       - ./firefox/acceptance-gateway.conf:/etc/nginx/conf.d/default.conf:ro
+      - acceptance-gateway-auth:/run/gateway-auth:ro
     expose: ["8081"]
     restart: unless-stopped
     depends_on: [firefox, driver]
     networks: [acceptance-private, acceptance-front]
+  bootstrap:
+    image: node:24.22.3-bookworm-slim
+    user: "1000:1000"
+    restart: "no"
+    environment:
+      ACCEPTANCE_CI_FIXTURE: ${ACCEPTANCE_CI_FIXTURE:-0}
+    volumes:
+      - acceptance-api:/run/secrets:ro
+      - ./scripts/acceptance-bootstrap.js:/bootstrap.js:ro
+    command: ["node","/bootstrap.js"]
+    depends_on: [gateway, driver]
+    networks: [acceptance-private]
+    labels:
+      traefik.enable: "false"
 volumes:
   acceptance-profile: {}
   acceptance-managed: {}
+  acceptance-api: {}
+  acceptance-gateway-auth: {}
 networks:
   acceptance-private:
     internal: true
   acceptance-egress: {}
   acceptance-front: {}
-secrets:
-  acceptance_driver_api_key:
-    environment: ACCEPTANCE_DRIVER_API_KEY
