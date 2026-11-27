@@ -1,4 +1,6 @@
 # Isolated Firefox Release acceptance
+
+**Current scope: evidence only; live gate closed.** The configuration and test descriptions below are reviewed source/reference information, not instructions to execute live requests or deployments. The existing signed 0.1.3 integration artifact has disposable CI evidence; the separate 0.1.4 candidate remains unsigned. See [verification register](VERIFICATION.md) for the exact outstanding receipts. No signing or deployment is authorized.
 Dedicated Coolify project Kasm Release Acceptance, environment acceptance,
 application UUID ykaquddwjrtu8of2qm0cafzq. Never uses a production profile,
 network, route, or credential. No automatic Coolify deployment is configured.

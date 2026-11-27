@@ -1,5 +1,7 @@
 # Operator guide
 
+**Current scope:** the following operator procedures are reference material, not active instructions. The authenticated live driver gate is closed. No requests, session changes, signing or deployment are authorized. See [verification](VERIFICATION.md) and [isolated acceptance scope](RELEASE-ACCEPTANCE.md) for what has actually been tested.
+
 ## Start an agent session
 
 Read the authenticated status endpoint. Wait for bridge state `ready`. A

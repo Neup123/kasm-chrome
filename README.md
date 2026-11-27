@@ -4,12 +4,13 @@ Operate an existing Kasm Firefox browser through a private driver and a signed
 Manifest V2 companion extension. Named Firefox containers keep sessions apart
 inside the existing browser and persistent home volume.
 
-**Release status:** Firefox runtime fixes have passed a local browser test.
-The new 0.1.1 source requires a matching AMO-signed extension before the
-Kasm image builds. The previous 0.1.0 XPI must not be reused. See
-[verification](docs/VERIFICATION.md) for the boundary of the local test.
+**Current acceptance status (2026-11-27):** signed 0.1.3 is source-matched on the isolated integration branch `test/release-0.1.2-coolify-acceptance`. Disposable signed Firefox CI passed installation, bridge and fixture checks; draft #15 additionally proves restart and same-image synthetic profile restoration. The separate 0.1.4 candidate in [draft #16](https://github.com/Neup123/kasm-chrome/pull/16) passed 79 tests and unsigned package verification, but has no matching signed artifact. All eight deployed acceptance criteria remain NOT RUN. The signing and authenticated live acceptance gates are closed; these documents are not authorization to sign, deploy, merge, or connect to a live driver.
+
+See the [acceptance matrix and candidate register](docs/VERIFICATION.md), [release evidence](docs/RELEASE-ACCEPTANCE-EVIDENCE.md) and [isolated scope](docs/RELEASE-ACCEPTANCE.md).
 
 ## How it works
+
+The architecture below describes the original production design, not independently verified current production routing. The isolated acceptance stack uses its own gateway and fresh profile; see its separate scope document.
 
 An agent sends a JSON command over HTTPS with `X-API-Key`. Traefik routes only
 the API prefix to the driver. The Firefox extension opens its own authenticated
@@ -39,7 +40,9 @@ and enables no browser debugging port.
 | Area | Purpose |
 | --- | --- |
 | [Build plan](docs/BUILD_PLAN.md) | Scope, contract, state transitions and release gates |
-| [Deployment guide](docs/DEPLOYMENT.md) | Exact source/branch/compose path, secret names, preflight, deployment and rollback |
+| [Deployment guide](docs/DEPLOYMENT.md) | Historical production procedure; not authorized under the current closed gates |
+| [Isolated acceptance](docs/RELEASE-ACCEPTANCE.md) | Separate application, reviewed topology and evidence boundary |
+| [Release evidence](docs/RELEASE-ACCEPTANCE-EVIDENCE.md) | Signed 0.1.3 provenance, unsigned 0.1.4 candidate and outstanding gates |
 | [Operator guide](docs/OPERATIONS.md) | Everyday commands, recovery and ChatGPT interactions |
 | [Driver API](driver/README.md) | Endpoints, authentication, errors, delivery semantics and logging |
 | [OpenAPI](docs/openapi.json) | Generated from the shared command definition |
@@ -147,6 +150,8 @@ exactly-once delivery.
 
 ## Build, sign and deploy
 
+The commands and release procedure below describe the general build contract. Only offline source/CI validation is within the current acceptance-documentation scope. Signing and deployment procedures are historical/reference only until separately authorized; do not execute them or retry the closed channel.
+
 Use Node 24.22.3, Python 3, and PyYAML 6.0.3 for deployment source checks.
 
 ```bash
@@ -227,7 +232,7 @@ guard. No automatic approval or retry occurs. `tabs.setEffort` and
 The effort geometry and approval markup are based on reported UI observations
 and synthetic fixtures; no claim of real ChatGPT compatibility is made until
 a separately authorized, isolated account acceptance check. The existing
-signed 0.1.1 artifact remains historical and must not be used to build 0.1.2.
+older signed artifacts remain historical and must not be used with changed source.
 
 ### Viewport inspection and coordinate controls
 
@@ -262,5 +267,4 @@ accessible label `Ask ChatGPT`, without requiring a DOM ID or test ID.
 An unlabeled wrapper is searched only within six local ancestors, stopping at
 conversation/document landmarks and rejecting other editors or ambiguous controls.
 This addresses reported live error EFFORT_COMPOSER_NOT_FOUND on 0.1.2; positive
-real ChatGPT acceptance remains required. Version 0.1.3 must be independently
-signed; the verified 0.1.2 archive cannot be used with these changed sources.
+real ChatGPT acceptance remains required. A matching signed 0.1.3 artifact exists and was verified in disposable Firefox CI. The separate unsigned 0.1.4 sibling-toolbar candidate is not a signed release. See the [candidate register](docs/VERIFICATION.md#candidate-014--outstanding-acceptance-register-2026-11-27).
