@@ -1,0 +1,92 @@
+# Dedicated Firefox Release acceptance stack. Never use production resources.
+# Deploy only into Kasm Release Acceptance / acceptance after explicit approval.
+services:
+  init:
+    image: node:24.22.3-bookworm-slim
+    user: "0:0"
+    network_mode: none
+    restart: "no"
+    volumes:
+      - acceptance-managed:/managed
+    command:
+      - node
+      - -e
+      - |
+        const fs = require('node:fs');
+        const crypto = require('node:crypto');
+        const path = '/managed/kasm-agent@chabad.gr.json';
+        if (fs.existsSync(path)) process.exit(0);
+        const value = JSON.stringify({name:'kasm-agent@chabad.gr',description:'Isolated Release acceptance',type:'storage',data:{wsUrl:'ws://driver:8080/ws',wsToken:crypto.randomBytes(32).toString('base64url')}});
+        fs.writeFileSync(path+'.tmp', value, {mode:0o400});
+        fs.chownSync(path+'.tmp',1000,1000);
+        fs.renameSync(path+'.tmp',path);
+    labels:
+      traefik.enable: "false"
+  firefox:
+    build:
+      context: .
+      dockerfile: firefox/Dockerfile
+    environment:
+      VNC_PW: ${ACCEPTANCE_VNC_PASSWORD:?independent acceptance VNC credential required}
+      LAUNCH_URL: https://chatgpt.com/
+    volumes:
+      - acceptance-profile:/home/kasm-user
+      - acceptance-managed:/usr/lib/mozilla/managed-storage:ro
+    expose: ["6901"]
+    shm_size: 512mb
+    restart: unless-stopped
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    networks: [acceptance-private, acceptance-egress]
+    labels:
+      traefik.enable: "false"
+  driver:
+    build:
+      context: .
+      dockerfile: driver/Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: "8080"
+      DRIVER_MANAGED_STORAGE_FILE: /run/managed/kasm-agent@chabad.gr.json
+      DRIVER_API_KEY_FILE: /run/secrets/driver_api_key
+    volumes:
+      - acceptance-managed:/run/managed:ro
+    secrets:
+      - source: acceptance_driver_api_key
+        target: driver_api_key
+        uid: "1000"
+        gid: "1000"
+        mode: 0400
+    expose: ["8080"]
+    user: "1000:1000"
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    networks:
+      acceptance-private:
+        aliases: [driver]
+    labels:
+      traefik.enable: "false"
+  gateway:
+    image: nginx:1.28-alpine
+    volumes:
+      - ./firefox/acceptance-gateway.conf:/etc/nginx/conf.d/default.conf:ro
+    expose: ["8081"]
+    restart: unless-stopped
+    depends_on: [firefox, driver]
+    networks: [acceptance-private, acceptance-front]
+volumes:
+  acceptance-profile: {}
+  acceptance-managed: {}
+networks:
+  acceptance-private:
+    internal: true
+  acceptance-egress: {}
+  acceptance-front: {}
+secrets:
+  acceptance_driver_api_key:
+    environment: ACCEPTANCE_DRIVER_API_KEY
