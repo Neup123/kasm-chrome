@@ -31,3 +31,22 @@ Baseline details are from the [failed regression job](https://github.com/Neup123
 Unsigned CI XPI SHA-256 `11b306c6adfe2578c11f8ab8541ed3c29f725fdde1da4065bfab916647853031`; source_files_match=true, signature_entries_present=false (job report, not independent archive download). Candidate extension tree `90a8009ed92d21731b2b266ecb74a7cf8947f8d1`; comparison with integration confirms manifest version is its only semantic change, including unchanged permissions. Signed 0.1.3 XPI blob `3de4aef1611c8e7e6de2054d75929f99e2b0fe7b` and metadata blob `f01597d36de048cf9661deebccdb5a7e897bf00c` are unchanged. The draft's source differs from both signed 0.1.3 and PR #16's unsigned tree; its provisional 0.1.4 version cannot identify a combined release. Any future integration requires source review and validation; no signing or deployment is authorized here.
 
 **Closed:** the reproducible source-level five-tick identification and false-High verification defects for the constructed row layouts. **Unproven:** actual five-level markup, label names/order, trigger and geometry in fresh/live ChatGPT, actual High selection and readback, combined candidate behavior, new signed package, signed Firefox runtime and all deployed acceptance. The stricter common-leaf-row and contiguous-label requirements intentionally fail closed for other structures; no universal live compatibility is claimed. No authenticated channel use, signing, deployment or merge.
+
+## Independent unsigned archive receipt (2026-11-27)
+
+Downloaded [artifact 15220692775](https://github.com/Neup123/kasm-chrome/actions/runs/46043162623/artifacts/15220692775) from [completed validation job 140655723185](https://github.com/Neup123/kasm-chrome/actions/runs/46043162623/job/140655723185), exact source commit `0175db13d0f98837e2b49b78e548db046679c376` (79/79 passing). Independently inspected local archive bytes using Python zipfile/hashlib; compared hashes with the GitHub artifact metadata, previously reviewed job log and immutable Git tree.
+
+| Check | Observed result |
+| --- | --- |
+| Outer ZIP size | 21605 bytes |
+| Outer SHA-256 | `556fc62d01b05557394dd70ad6167af76e1952f6b8db643dc8077f1ee872d357` — matches GitHub metadata |
+| Outer inventory | Exactly one `kasm-agent-unsigned.xpi`; CRC check passed |
+| XPI SHA-256 | `bf12cbf7328989dd133e3fafcd178d9642c778ead1cef667837f152ec0ee189b` — matches CI log |
+| XPI inventory | Exactly seven files, no duplicates or extra entries, CRC check passed |
+| Git blob equality | 7/7 match candidate tree `90a8009ed92d21731b2b266ecb74a7cf8947f8d1` |
+| Manifest | 0.1.4, ID `kasm-agent@chabad.gr` |
+| Signature | Zero signature entries; unsigned |
+
+Git blob hashes calculated from actual XPI payload bytes using SHA-1 over the Git blob header plus file bytes: LICENSE `fb698beea6cd2d6dc5001c794325cde723428230`, background.js `b9031b035e77e1f933d529967b386226b3622ee6`, content.js `baa0e2713aeb9ba5715b3eeb971f4ed3cd867499`, core.js `3a03491644edfb512ff1b3abc4cac6d3a5cdcd4a`, manifest.json `bac18e5a82a93f3319149947ba00f8d57c015320`, protocol.js `d149897d904ce57eb9f7cedc1b6ebe429de319d1`, transport.js `041c5698c039e30d062206308aa7d588c4ee76d5`. All match the repository. The archive hash identifies this particular build, not a reproducible ZIP timestamp contract.
+
+This closes the independent archive-byte evidence gap for PR #17. No installation, signing, cryptographic trust, real ChatGPT interaction or deployed acceptance is proven; the live and signing gates remain closed. The earlier CI-only package statements refer to their original builds and are retained as history.
