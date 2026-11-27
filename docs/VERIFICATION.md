@@ -1,5 +1,31 @@
 # Verification record
 
+## Release 0.1.3 candidate (2026-11-27)
+
+The source-matching AMO-signed XPI is staged for review only. The previous
+committed 0.1.2 package does not match the 0.1.3 extension source. The promotion
+uses the exact existing signed artifact, not a new AMO submission:
+
+- Extension tree: `6e2ab512e420e8849832cc279171ee8c4d37ab1e`.
+- XPI SHA-256: `06daaffce4d70e47568a33bee00c15ab4df5231f754fee0ec9eefbee0deb3d46`.
+- [Protected signing run 45965157214](https://github.com/Neup123/kasm-chrome/actions/runs/45965157214).
+- [Independent signed Firefox Release and isolated fixture CI 45971188640](https://github.com/Neup123/kasm-chrome/actions/runs/45971188640).
+- [Isolated acceptance evidence, draft PR #12](https://github.com/Neup123/kasm-chrome/pull/12).
+
+The signed-Release workflow now verifies the committed package against the
+checked-out source and metadata, then builds and runs it in disposable CI.
+It does not sign, publish, deploy or write to any branch. It is triggered on
+package/metadata changes for main-targeted PRs or explicit workflow dispatch.
+The historical unsigned validation and ESR tests remain independent.
+
+**Live acceptance remains NOT RUN.** The authenticated isolated driver
+channel is closed. The real ChatGPT login/composer, effort, approval, key and
+coordinate interaction tests must pass through the approved channel before
+any release authorization. Do not retry the blocked operation or bypass the
+gate. This candidate is not a deployment or authorization to merge.
+
+## Historical evidence — release 0.1.0
+
 Date: 2026-11-22. Release: 0.1.0.
 
 **Source and local behavior are tested. The extension is unsigned. No production

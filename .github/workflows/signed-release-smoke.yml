@@ -1,14 +1,16 @@
 name: Kasm signed Firefox Release integration
 on:
-  push:
-    branches: ['feat/chatgpt-babysitting-0.1.2']
-    paths: ['.github/workflows/signed-release-smoke.yml', 'scripts/run-esr-smoke.sh', 'scripts/esr-smoke.js']
+  pull_request:
+    branches: [main]
+    paths:
+      - artifacts/kasm-agent-signed.xpi
+      - artifacts/signed-artifact.json
+      - .github/workflows/signed-release-smoke.yml
   workflow_dispatch:
 permissions:
   contents: read
-  actions: read
 concurrency:
-  group: kasm-signed-release-smoke
+  group: kasm-signed-release-smoke-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   signed-release:
@@ -18,19 +20,8 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           persist-credentials: false
-      - name: Verify reviewed extension tree has not changed
-        run: test "$(git rev-parse HEAD:extension)" = '28bd883ac31896bc4bdcf5b20a17842adec9cd02'
-      - name: Download and verify exact AMO artifact
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh run download 45885831204 --repo Neup123/kasm-chrome --name kasm-agent-signed --dir "$RUNNER_TEMP/kasm-signed"
-          cd "$RUNNER_TEMP/kasm-signed"
-          echo 'f0d295600785f717f739bd9cffe8b2418e4d1b81af59dfc445201d78a3ea1c7f  kasm-agent-signed.xpi' | sha256sum -c -
-          cd "$GITHUB_WORKSPACE"
-          python3 scripts/verify-xpi.py "$RUNNER_TEMP/kasm-signed/kasm-agent-signed.xpi" --require-signature --metadata "$RUNNER_TEMP/kasm-signed/signed-artifact.json"
-          cp "$RUNNER_TEMP/kasm-signed/kasm-agent-signed.xpi" artifacts/kasm-agent-signed.xpi
-          cp "$RUNNER_TEMP/kasm-signed/signed-artifact.json" artifacts/signed-artifact.json
+      - name: Verify committed signed package and metadata against reviewed source
+        run: python3 scripts/verify-xpi.py artifacts/kasm-agent-signed.xpi --require-signature --metadata artifacts/signed-artifact.json
       - name: Run signed Firefox Release on an isolated CI network
         env:
           SIGNED_RELEASE_SMOKE: '1'
