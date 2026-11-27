@@ -1,0 +1,78 @@
+# Isolated Coolify acceptance stack: no public routes, no host ports, fresh profile.
+# Fresh ESR profile only; never mount the old Release profile.
+services:
+  firefox:
+    build:
+      context: .
+      dockerfile: firefox/Dockerfile.esr
+    image: kasm-esr-isolated-firefox:${DRIVER_IMAGE_TAG:?immutable release tag required}
+    environment:
+      APP_ARGS: "-profile /esr-profile"
+      VNC_PW: ${VNC_PW:?existing VNC secret required}
+    expose:
+      - "6901"
+    volumes:
+      - esr-profile:/esr-profile
+    secrets:
+      - source: driver_managed_storage
+        target: /usr/lib/mozilla/managed-storage/kasm-agent@chabad.gr.json
+        uid: "1000"
+        gid: "1000"
+        mode: 0400
+    shm_size: 512mb
+    restart: unless-stopped
+    networks:
+      - bridge-private
+    labels:
+      - traefik.enable=false
+  driver:
+    build:
+      context: .
+      dockerfile: driver/Dockerfile
+    image: kasm-esr-isolated-driver:${DRIVER_IMAGE_TAG:?immutable release tag required}
+    environment:
+      NODE_ENV: production
+      PORT: "8080"
+      DRIVER_MANAGED_STORAGE_FILE: /run/secrets/driver_managed_storage
+      DRIVER_API_KEY_FILE: /run/secrets/driver_api_key
+    expose:
+      - "8080"
+    secrets:
+      - source: driver_managed_storage
+        target: driver_managed_storage
+        uid: "1000"
+        gid: "1000"
+        mode: 0400
+      - source: driver_api_key
+        target: driver_api_key
+        uid: "1000"
+        gid: "1000"
+        mode: 0400
+    user: "1000:1000"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    networks:
+      bridge-private:
+        aliases:
+          - driver
+    labels:
+      - traefik.enable=false
+
+volumes:
+  esr-profile: {}
+
+networks:
+  bridge-private:
+    internal: true
+
+# Native environment-backed Compose secrets: no secret bytes in this file,
+# policies.json, Docker build arguments, image layers, or the signed extension.
+# Coolify's vault-backed deployment environment must supply both values.
+secrets:
+  driver_managed_storage:
+    environment: DRIVER_MANAGED_STORAGE
+  driver_api_key:
+    environment: DRIVER_API_KEY
