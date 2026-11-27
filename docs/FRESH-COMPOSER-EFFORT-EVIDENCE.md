@@ -37,3 +37,18 @@ CI unsigned XPI: version 0.1.4, SHA-256 `960f3aedb9171ba23f28ad5053978e941b92c78
 The only repository-grounded live observation relevant to this fix is the historical report in PR #11: a 0.1.2 request returned EFFORT_COMPOSER_NOT_FOUND on a composer with an accessible Ask ChatGPT label and without the old ID/test ID. That report is attributed, not independently reproduced here. It supports the earlier anchor fix, not the newly constructed sibling-toolbar hypothesis. There is no independently verified real fresh-conversation trigger markup, current level, click/drag result, or post-action High readback in this work. The green tests prove the specific synthetic identification defect is fixed, including rejection cases. They do not prove the actual live page has that structure or that 0.1.4 would work there.
 
 Disposition: source-level regression and evidence item complete. Live identification and interaction remain NOT RUN; gate closed. Source-matching signed 0.1.4 artifact absent from this draft. No authorization to sign, deploy, merge or retry live connections.
+
+## Independently executed stale-package gate (2026-11-27)
+
+Offline check of the actual AMO-signed 0.1.3 XPI, not a fake signature fixture. The retained archive from [signing artifact 15181569855](https://github.com/Neup123/kasm-chrome/actions/runs/45965157214/artifacts/15181569855) matched outer SHA-256 `005ffe16836259ba907966d0f2b77139aa05458a7e30ba2a2fe61b8700323f11`; inner XPI SHA-256 `06daaffce4d70e47568a33bee00c15ab4df5231f754fee0ec9eefbee0deb3d46`. XPI Git blob `3de4aef1611c8e7e6de2054d75929f99e2b0fe7b` and metadata blob `f01597d36de048cf9661deebccdb5a7e897bf00c` match both branches. Reconstructed the seven baseline extension files from the signed payload and reviewed source manifest, applied the exact repository patch to reproduce the seven candidate files, and checked every file's Git blob against each immutable tree (7/7 both). The unchanged [verifier](https://github.com/Neup123/kasm-chrome/blob/fc1c636410f2bf1b7973ff7d612c77759ed3698b/scripts/verify-xpi.py) was also byte-verified against blob `0df07b7cfb9f345e25401db66503e8d42d1f0668`.
+
+Ran the repository verifier with the actual XPI, `--require-signature --metadata signed-artifact.json` and each source directory:
+
+| Source supplied to verifier | Exit | Actual result |
+| --- | ---: | --- |
+| Exact signed 0.1.3 integration source `fc1c636410f2bf1b7973ff7d612c77759ed3698b` | 0 | version 0.1.3; source_files_match=true; signature_entries_present=true; cryptographic_trust_verified=false |
+| Exact unsigned 0.1.4 draft source `21e146dcf2b3a7e6bfbf3a15d0c0b6f1a398fcb6` | 1 | Artifact verification failed: Signed manifest semantics differ from the reviewed source. |
+| Controlled variant: baseline with only the candidate manifest | 1 | Artifact verification failed: Signed manifest semantics differ from the reviewed source. |
+| Controlled variant: baseline with only the candidate content.js | 1 | Artifact verification failed: XPI payload differs from the reviewed source. |
+
+The two controlled variants establish that either change independently blocks reuse of the old signed XPI; relabeling its version/metadata cannot make its executable content match. These are isolated offline source comparisons, not installation or runtime tests. The verifier's explicit cryptographic-trust=false result is expected; earlier signed Firefox 0.1.3 CI remains the actual signature acceptance evidence for that version alone. No new signed 0.1.4 artifact, signed image build, real ChatGPT interaction or deployed acceptance is proven. The authenticated channel stays closed; no signing or deployment was attempted.
