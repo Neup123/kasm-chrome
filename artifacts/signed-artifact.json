@@ -1,9 +1,9 @@
 {
   "extension_id": "kasm-agent@chabad.gr",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "channel": "unlisted",
-  "sha256": "f0d295600785f717f739bd9cffe8b2418e4d1b81af59dfc445201d78a3ea1c7f",
+  "sha256": "06daaffce4d70e47568a33bee00c15ab4df5231f754fee0ec9eefbee0deb3d46",
   "source_verified": true,
-  "signed_at": "2026-11-26T19:47:29.642Z",
+  "signed_at": "2026-11-27T08:27:02.956Z",
   "cryptographic_acceptance": "Requires Firefox Release policy-install evidence"
 }
