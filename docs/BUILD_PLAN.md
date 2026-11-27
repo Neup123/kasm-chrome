@@ -88,3 +88,7 @@ Local tests cover API auth, WebSocket protocol, timeouts, reconnect logic,
 container dispatch, DOM operations and packaging. They cannot prove Firefox
 Release signature acceptance, Kasm first boot, production ChatGPT behavior,
 Traefik/Authelia settings, live volume persistence or rollback.
+
+## Disposable profile recovery follow-up (2026-11-27)
+
+[signed backup/restore fixture job 140520386269](https://github.com/Neup123/kasm-chrome/actions/runs/46003376739/job/140520386269) passed in [draft PR #15](https://github.com/Neup123/kasm-chrome/pull/15) at tested commit `48182d3a5799cc94f508207838a8ec484fb0c9fd`. The stopped synthetic profile was archived from a read-only volume, checksum verified, restored to a separate empty volume, and opened in a newly created Firefox Release 160.0.1 container using the same image. Both named identities and independent cookie/localStorage markers survived without reseeding; signed extension 0.1.3 remained active (signedState 2). The original disposable volume was retained during the test. This proves same-image synthetic backup recovery only, not a deployed backup/restore, image-version rollback, real profile preservation, live TLS/proxy or real ChatGPT controls. The deployed acceptance criterion remains NOT RUN and the authenticated channel remains closed.

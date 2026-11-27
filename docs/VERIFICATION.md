@@ -13,7 +13,7 @@ The isolated integration branch `test/release-0.1.2-coolify-acceptance` contains
 | Reconnect after restart | Earlier ESR and [signed Release restart fixture job 140511960304](https://github.com/Neup123/kasm-chrome/actions/runs/46000898359/job/140511960304): signed Release disposable driver/browser restart, reconnect and marker persistence | Current deployed stack reconnect and persistence |
 | Independent sessions | Signed Release fixture cookies and localStorage isolated, including both disposable CI restarts | Two actual deployed test contexts |
 | Proxy authentication | Isolated gateway CI rejects unauthorized browser/API access | Live HTTPS routing and authentication; production Authelia explicitly outside scope |
-| Rollback and volume preservation | Separate source-defined profile volume and no shared host ports in CI | Runtime mount identity, backup/restore and rollback demonstration |
+| Rollback and volume preservation | Separate source-defined volume, unchanged volume identity through CI restart, and same-image backup/restore to a fresh CI volume ([signed backup/restore fixture job 140520386269](https://github.com/Neup123/kasm-chrome/actions/runs/46003376739/job/140520386269)) | Runtime mount identity, backup/restore and rollback demonstration |
 
 All eight original deployed acceptance criteria remain NOT RUN in the current authenticated live acceptance scope. Real control-specific tests also remain NOT RUN. The completed deployment receipt does not certify runtime health; no new live probe or deployment is authorized. The main branch artifact promotion in #14 does not establish any production runtime change.
 
