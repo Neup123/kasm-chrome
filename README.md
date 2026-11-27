@@ -255,3 +255,12 @@ Effort drag and approval use the same hit-test primitives; the approval
 options trigger is hit near its right edge and the verified conversation
 menu item is hit-tested before activation. These are synthetic events
 (`isTrusted=false`); isolated real application verification remains required.
+
+### Composer anchor compatibility (0.1.3)
+The effort control additionally recognizes a visible contenteditable with exact
+accessible label `Ask ChatGPT`, without requiring a DOM ID or test ID.
+An unlabeled wrapper is searched only within six local ancestors, stopping at
+conversation/document landmarks and rejecting other editors or ambiguous controls.
+This addresses reported live error EFFORT_COMPOSER_NOT_FOUND on 0.1.2; positive
+real ChatGPT acceptance remains required. Version 0.1.3 must be independently
+signed; the verified 0.1.2 archive cannot be used with these changed sources.
