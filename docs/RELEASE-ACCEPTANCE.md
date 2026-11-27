@@ -8,7 +8,7 @@ network, route, or credential. No automatic Coolify deployment is configured.
   External HTTPS uses the existing server listener on port 1004, not port 443.
   Browser: https://kasm-release-acceptance-012.chgr.duckdns.org:1004/.
   Driver: https://kasm-release-acceptance-012.chgr.duckdns.org:1004/agent-driver/v1.
-  The exact API base is an authenticated status alias; unauthenticated calls must return 401, not 404.
+  In the reviewed gateway configuration the exact API base is an authenticated status alias; the CI fixture expects HTTP 401 for unauthenticated requests. The live external response has not been independently verified. A reported 404 is not a reliable version or authentication diagnosis.
 - Coolify generates distinct SERVICE_PASSWORD_ACCEPTANCEVNC and
   SERVICE_HEX_64_ACCEPTANCEAPI credentials. Do not print, retrieve into chat,
   or reuse these values. The init service creates a separate random WS token
@@ -29,3 +29,5 @@ network, route, or credential. No automatic Coolify deployment is configured.
   evidence. Actual ChatGPT acceptance cannot be inferred from bootstrap.
 
 Gateway configuration and bootstrap script are copied into their own images, not mounted from the host. This avoids Coolify/WSL Docker Desktop file-bind type mismatches. Only application-scoped named volumes remain.
+
+For current verified evidence and the closed live acceptance gate, see [Release acceptance evidence](RELEASE-ACCEPTANCE-EVIDENCE.md). For the original eight criteria and their remaining gaps, see [Verification record](VERIFICATION.md). Do not initiate driver requests while the gate remains closed.

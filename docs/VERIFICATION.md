@@ -1,6 +1,23 @@
 # Verification record
 
-Date: 2026-11-22. Release: 0.1.0.
+## Current release evidence (2026-11-27)
+
+The isolated integration branch `test/release-0.1.2-coolify-acceptance` contains signed 0.1.3, despite its historical name. See [current evidence and exact provenance](RELEASE-ACCEPTANCE-EVIDENCE.md) and [isolated stack scope](RELEASE-ACCEPTANCE.md). The historical 0.1.0 record below is retained for traceability, not current release status.
+
+| Original acceptance criterion | Proven by repository/CI evidence | Still unproven on deployed isolated stack |
+| --- | --- | --- |
+| Policy installation | Signed 0.1.3 active in stock Firefox Release 160.0.1 in CI | Actual installed extension and ready bridge |
+| Two named containers visible in desktop UI | Named contexts created via CI API | Actual desktop display and icon/color |
+| ChatGPT tab in named context | Fresh internal fixture tab created in isolated CI | Actual ChatGPT tab and named-context binding |
+| Read/type/send | Internal fixture type/click/readback in real Firefox | Authenticated composer, real conversation send/readback |
+| Reconnect after restart | Earlier isolated ESR integration reconnect and persistence, not signed Release restart | Current deployed stack reconnect and persistence |
+| Independent sessions | Signed Release fixture cookies and localStorage isolated | Two actual deployed test contexts |
+| Proxy authentication | Isolated gateway CI rejects unauthorized browser/API access | Live HTTPS routing and authentication; production Authelia explicitly outside scope |
+| Rollback and volume preservation | Separate source-defined profile volume and no shared host ports in CI | Runtime mount identity, backup/restore and rollback demonstration |
+
+All eight original deployed acceptance criteria remain NOT RUN in the current authenticated live acceptance scope. Real control-specific tests also remain NOT RUN. The completed deployment receipt does not certify runtime health; no new live probe or deployment is authorized. The main branch artifact promotion in #14 does not establish any production runtime change.
+
+## Historical record: release 0.1.0 (2026-11-22)
 
 **Source and local behavior are tested. The extension is unsigned. No production
 deployment or live acceptance is claimed.**
