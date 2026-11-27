@@ -322,3 +322,288 @@ test('interactive map includes role-less drag affordances, implicit roles and ex
   const r=await h.command('tabs.mapInteractive');
   assert.equal(r.ok,true);assert.deepEqual(r.result.elements.map(e=>[e.role,e.text]),[['button','Button'],[null,'Track']]);h.close();
 });
+
+function freshEffortHarness(markup) {
+  const h=harness(markup);
+  const place=layout(h);
+  const button=h.document.querySelector('#effort');
+  let opened=0;
+  place(button,10,100,100,20);
+  button.onclick=()=>{
+    opened++;
+    const popup=h.document.createElement('section');popup.dataset.state='open';
+    popup.innerHTML='<div id="track"></div><div><span>Low</span><span>Medium</span><span>High</span></div>';
+    h.document.body.append(popup);
+    const track=popup.querySelector('#track');place(track,10,10,200,8);
+    popup.querySelectorAll('span').forEach((el,i)=>place(el,i*90+10,30,20,15));
+    track.addEventListener('pointerup',e=>{if(e.clientX>170)button.textContent='High';popup.remove();});
+  };
+  return {...h,opened:()=>opened};
+}
+test('fresh composer with an editor form and sibling named effort control verifies High',async()=>{
+  const h=freshEffortHarness('<main><section><form><div contenteditable="true" aria-label="Ask ChatGPT"></div></form><div><button id="effort" type="button" aria-label="Thinking effort">Medium</button></div></section></main>');
+  try {
+    const reply=await h.command('tabs.setEffort',{effort:'High'});
+    assert.deepEqual(reply.result,{effort:'High',previous:'Medium',changed:true,verified:true},JSON.stringify(reply));
+    assert.equal(h.opened(),1);
+    assert.deepEqual((await h.command('tabs.setEffort',{effort:'High'})).result,{effort:'High',changed:false,verified:true});
+    assert.equal(h.opened(),1);
+  } finally {h.close();}
+});
+test('fresh explicit composer test ID with sibling named effort control verifies High',async()=>{
+  const h=freshEffortHarness('<main><section><div data-testid="composer"><div contenteditable="true" aria-label="Ask ChatGPT"></div></div><div><button id="effort" aria-label="Thinking effort">Medium</button></div></section></main>');
+  try {
+    const reply=await h.command('tabs.setEffort',{effort:'High'});
+    assert.deepEqual(reply.result,{effort:'High',previous:'Medium',changed:true,verified:true},JSON.stringify(reply));
+    assert.equal(h.opened(),1);
+  } finally {h.close();}
+});
+test('fresh explicit composer fallback rejects a bare level label',async()=>{
+  const h=freshEffortHarness('<main><section><form><div contenteditable="true" aria-label="Ask ChatGPT"></div></form><button id="effort">High</button></section></main>');
+  try {
+    assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error.code,'EFFORT_PICKER_NOT_UNIQUE');
+    assert.equal(h.opened(),0);
+  } finally {h.close();}
+});
+test('fresh explicit composer fallback rejects multiple named effort controls',async()=>{
+  const h=freshEffortHarness('<main><section><form><div contenteditable="true" aria-label="Ask ChatGPT"></div></form><button id="effort" aria-label="Thinking effort">Medium</button><button aria-label="Thinking effort">High</button></section></main>');
+  try {
+    assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error.code,'EFFORT_PICKER_NOT_UNIQUE');
+    assert.equal(h.opened(),0);
+  } finally {h.close();}
+});
+test('fresh explicit composer fallback never crosses a main landmark or another editor',async()=>{
+  const h=freshEffortHarness('<main><section><form><div contenteditable="true" aria-label="Ask ChatGPT"></div></form></section><button id="effort" aria-label="Thinking effort">High</button></main>');
+  try {
+    assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error.code,'EFFORT_PICKER_NOT_UNIQUE');
+    const section=h.document.querySelector('section');
+    section.append(h.document.querySelector('#effort'));
+    const other=h.document.createElement('textarea');section.append(other);
+    assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error.code,'EFFORT_COMPOSER_AMBIGUOUS');
+    assert.equal(h.opened(),0);
+  } finally {h.close();}
+});
+test('fresh explicit composer fallback rejects controls in another form or dialog',async()=>{
+  const h=freshEffortHarness('<main><section><form><div contenteditable="true" aria-label="Ask ChatGPT"></div></form><form><button id="effort" aria-label="Thinking effort">High</button></form></section></main>');
+  try {
+    assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error.code,'EFFORT_PICKER_NOT_UNIQUE');
+    const other=h.document.querySelectorAll('form')[1];
+    const dialog=h.document.createElement('div');dialog.setAttribute('role','dialog');
+    dialog.append(h.document.querySelector('#effort'));other.replaceWith(dialog);
+    assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error.code,'EFFORT_PICKER_NOT_UNIQUE');
+    assert.equal(h.opened(),0);
+  } finally {h.close();}
+});
+
+function fiveTickHarness({current='Medium', labels=['Minimal','Low','Medium','High','Extra High'], fullTrack=true, partialTrack=false, update='High', markup='<form><div id="prompt-textarea"></div><button type="button" aria-label="Thinking effort"></button></form>'}={}) {
+  const h=harness(markup);
+  const button=h.document.querySelector('button');
+  button.textContent=current;
+  const place=layout(h);place(button,10,100,100,20);
+  let opens=0;const releases=[];
+  button.onclick=()=>{
+    opens++;
+    const popup=h.document.createElement('section');popup.dataset.state='open';
+    popup.innerHTML='<div id="full"></div><div id="partial"></div><div id="ticks"></div>';
+    h.document.body.append(popup);
+    const ticks=popup.querySelector('#ticks');
+    labels.forEach((label,i)=>{
+      const el=h.document.createElement('span');el.textContent=label;ticks.append(el);
+      place(el,10+i*60,40,20,15);
+    });
+    const full=popup.querySelector('#full'), partial=popup.querySelector('#partial');
+    if(fullTrack) place(full,10,10,260,8);else full.remove();
+    // A plausible nearer partial track spans only Low, Medium, High.
+    if(partialTrack) place(partial,70,25,140,8);else partial.remove();
+    for(const track of [full,partial])track.addEventListener('pointerup',e=>{
+      releases.push({track:track.id,x:e.clientX});button.textContent=update;popup.remove();
+    });
+  };
+  return {...h,opens:()=>opens,releases};
+}
+test('five-tick effort identifies the full track and exact High tick instead of the nearer partial track',async()=>{
+  const h=fiveTickHarness({partialTrack:true});
+  try {
+    const reply=await h.command('tabs.setEffort',{effort:'High'});
+    assert.deepEqual(reply.result,{effort:'High',previous:'Medium',changed:true,verified:true},JSON.stringify(reply));
+    assert.deepEqual(h.releases,[{track:'full',x:200}]);
+    assert.deepEqual((await h.command('tabs.setEffort',{effort:'High'})).result,{effort:'High',changed:false,verified:true});
+    assert.equal(h.opens(),1);
+  } finally {h.close();}
+});
+test('five-tick effort rejects a partial track when no track spans the whole row',async()=>{
+  const h=fiveTickHarness({fullTrack:false,partialTrack:true});
+  try {
+    assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error.code,'EFFORT_TRACK_NOT_FOUND');
+    assert.deepEqual(h.releases,[]);
+  } finally {h.close();}
+});
+test('Extra High is not verified as High and must not trigger a drag',async()=>{
+  const h=fiveTickHarness({current:'Extra High'});
+  try {
+    assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error.code,'EFFORT_CURRENT_UNKNOWN');
+    assert.equal(h.opens(),0);assert.deepEqual(h.releases,[]);
+  } finally {h.close();}
+});
+test('five-tick effort rejects an unsupported level interleaved between supported ticks',async()=>{
+  const h=fiveTickHarness({labels:['Low','Medium','Intermediate','High','Extra High']});
+  try {
+    assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error.code,'EFFORT_GEOMETRY_UNVERIFIED');
+    assert.deepEqual(h.releases,[]);
+  } finally {h.close();}
+});
+test('five-tick effort rejects duplicate extra tick labels',async()=>{
+  const h=fiveTickHarness({labels:['Extra','Low','Medium','High','Extra']});
+  try {
+    assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error.code,'EFFORT_TICKS_NOT_UNIQUE');
+    assert.deepEqual(h.releases,[]);
+  } finally {h.close();}
+});
+test('five-tick effort does not treat Extra High readback as successful High',async()=>{
+  const h=fiveTickHarness({update:'Extra High'});
+  try {
+    const reply=await h.command('tabs.setEffort',{effort:'High'});
+    assert.equal(reply.error?.code,'EFFORT_NOT_APPLIED',JSON.stringify(reply));
+    assert.deepEqual(h.releases,[{track:'full',x:200}]);
+  } finally {h.close();}
+});
+
+const siblingFormFiveTicks='<main><section><form><div contenteditable="true" aria-label="Ask ChatGPT"></div></form><div><button type="button" aria-label="Thinking effort"></button></div></section></main>';
+const siblingTestIdFiveTicks='<main><section><div data-testid="composer"><div contenteditable="true" aria-label="Ask ChatGPT"></div></div><div><button type="button" aria-label="Thinking effort"></button></div></section></main>';
+test('combined fresh form sibling and five ticks choose the full track and verify High exactly once',async()=>{
+  const h=fiveTickHarness({markup:siblingFormFiveTicks,partialTrack:true});
+  try {
+    assert.deepEqual((await h.command('tabs.setEffort',{effort:'High'})).result,{effort:'High',previous:'Medium',changed:true,verified:true});
+    assert.deepEqual(h.releases,[{track:'full',x:200}]);
+    assert.deepEqual((await h.command('tabs.setEffort',{effort:'High'})).result,{effort:'High',changed:false,verified:true});
+    assert.equal(h.opens(),1);
+  } finally {h.close();}
+});
+test('combined fresh test-ID sibling and five ticks choose the full track',async()=>{
+  const h=fiveTickHarness({markup:siblingTestIdFiveTicks,partialTrack:true});
+  try {
+    const reply=await h.command('tabs.setEffort',{effort:'High'});
+    assert.deepEqual(reply.result,{effort:'High',previous:'Medium',changed:true,verified:true},JSON.stringify(reply));
+    assert.deepEqual(h.releases,[{track:'full',x:200}]);
+    assert.equal(h.opens(),1);
+  } finally {h.close();}
+});
+test('combined fresh sibling with only partial five-tick track fails without drag',async()=>{
+  const h=fiveTickHarness({markup:siblingFormFiveTicks,fullTrack:false,partialTrack:true});
+  try {
+    assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error?.code,'EFFORT_TRACK_NOT_FOUND');
+    assert.equal(h.opens(),1);assert.deepEqual(h.releases,[]);
+  } finally {h.close();}
+});
+test('combined fresh sibling with Extra High current label fails without opening picker',async()=>{
+  const h=fiveTickHarness({markup:siblingFormFiveTicks,current:'Extra High'});
+  try {
+    assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error?.code,'EFFORT_CURRENT_UNKNOWN');
+    assert.equal(h.opens(),0);assert.deepEqual(h.releases,[]);
+  } finally {h.close();}
+});
+test('combined fresh sibling five-tick drag rejects Extra High final label',async()=>{
+  const h=fiveTickHarness({markup:siblingTestIdFiveTicks,partialTrack:true,update:'Extra High'});
+  try {
+    assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error?.code,'EFFORT_NOT_APPLIED');
+    assert.equal(h.opens(),1);assert.deepEqual(h.releases,[{track:'full',x:200}]);
+  } finally {h.close();}
+});
+test('combined fresh sibling with duplicate named controls rejects before picker opens',async()=>{
+  const h=fiveTickHarness({markup:siblingFormFiveTicks});
+  try {
+    const duplicate=h.document.createElement('button');duplicate.setAttribute('aria-label','Thinking effort');duplicate.textContent='Medium';
+    h.document.querySelector('section').append(duplicate);
+    assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error?.code,'EFFORT_PICKER_NOT_UNIQUE');
+    assert.equal(h.opens(),0);assert.deepEqual(h.releases,[]);
+  } finally {h.close();}
+});
+
+function genericEffortHarness({current='Medium',final='High',associated=true,duplicate=false,close=false,preopen=false,triggerText='Thinking effort'}={}) {
+  const h=harness('<main><section><form><div contenteditable="true" aria-label="Ask ChatGPT"></div></form><div><button type="button" aria-label="Thinking effort">Thinking effort</button></div></section></main>');
+  const button=h.document.querySelector('button');button.textContent=triggerText;
+  const place=layout(h);place(button,10,100,100,20);
+  if(associated)button.setAttribute('aria-controls','effort-popup');
+  let opens=0;const releases=[];
+  function open(){
+    opens++;
+    const popup=h.document.createElement('section');popup.id='effort-popup';popup.dataset.state='open';
+    popup.innerHTML='<div id="track" role="slider" aria-label="Thinking effort"></div><div><span>Low</span><span>Medium</span><span>High</span></div>';
+    h.document.body.append(popup);
+    const track=popup.querySelector('#track');place(track,10,10,200,8);
+    if(current!==null)track.setAttribute('aria-valuetext',current);
+    popup.querySelectorAll('span').forEach((el,i)=>place(el,10+i*90,30,20,15));
+    if(duplicate){const other=track.cloneNode();other.id='other-track';popup.append(other);place(other,10,18,200,8);}
+    track.addEventListener('pointerup',e=>{
+      releases.push(e.clientX);
+      track.setAttribute('aria-valuetext',final);
+      if(close)popup.remove();
+    });
+  }
+  button.onclick=open;if(preopen)open();
+  return {...h,opens:()=>opens,releases};
+}
+test('generic Thinking effort identifies current level from associated slider and verifies exact final readback',async()=>{
+  const h=genericEffortHarness();
+  try{
+    const reply=await h.command('tabs.setEffort',{effort:'High'});
+    assert.deepEqual(reply.result,{effort:'High',previous:'Medium',changed:true,verified:true},JSON.stringify(reply));
+    assert.deepEqual(h.releases,[200]);assert.equal(h.opens(),1);
+  }finally{h.close();}
+});
+test('generic Thinking effort already High is verified without dragging',async()=>{
+  const h=genericEffortHarness({current:'High'});
+  try{
+    assert.deepEqual((await h.command('tabs.setEffort',{effort:'High'})).result,{effort:'High',changed:false,verified:true});
+    assert.deepEqual(h.releases,[]);assert.equal(h.opens(),1);
+  }finally{h.close();}
+});
+test('generic Thinking effort with missing slider value fails without drag',async()=>{
+  const h=genericEffortHarness({current:null});
+  try{
+    assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error?.code,'EFFORT_CURRENT_UNKNOWN');
+    assert.equal(h.opens(),1);assert.deepEqual(h.releases,[]);
+  }finally{h.close();}
+});
+test('generic Thinking effort rejects unsupported slider value without drag',async()=>{
+  const h=genericEffortHarness({current:'Extra High'});
+  try{
+    assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error?.code,'EFFORT_CURRENT_UNKNOWN');
+    assert.equal(h.opens(),1);assert.deepEqual(h.releases,[]);
+  }finally{h.close();}
+});
+test('generic Thinking effort rejects ambiguous associated sliders without drag',async()=>{
+  const h=genericEffortHarness({duplicate:true});
+  try{
+    assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error?.code,'EFFORT_CURRENT_UNKNOWN');
+    assert.equal(h.opens(),1);assert.deepEqual(h.releases,[]);
+  }finally{h.close();}
+});
+test('generic Thinking effort does not use a preexisting unassociated popup',async()=>{
+  const h=genericEffortHarness({associated:false,preopen:true});
+  try{
+    assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error?.code,'EFFORT_CURRENT_UNKNOWN');
+    assert.equal(h.opens(),1);assert.deepEqual(h.releases,[]);
+  }finally{h.close();}
+});
+test('generic Thinking effort refuses false Extra High slider readback',async()=>{
+  const h=genericEffortHarness({final:'Extra High'});
+  try{
+    assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error?.code,'EFFORT_NOT_APPLIED');
+    assert.deepEqual(h.releases,[200]);
+  }finally{h.close();}
+});
+test('generic Thinking effort cannot verify a closed popup with unchanged generic trigger',async()=>{
+  const h=genericEffortHarness({close:true});
+  try{
+    assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error?.code,'EFFORT_NOT_APPLIED');
+    assert.deepEqual(h.releases,[200]);
+  }finally{h.close();}
+});
+test('explicit unsupported current label cannot use generic fallback',async()=>{
+  const h=genericEffortHarness({triggerText:'Extra High'});
+  try{
+    assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error?.code,'EFFORT_CURRENT_UNKNOWN');
+    assert.equal(h.opens(),0);assert.deepEqual(h.releases,[]);
+  }finally{h.close();}
+});
