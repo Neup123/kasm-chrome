@@ -158,3 +158,15 @@ Effort drag and approval use the same hit-test primitives; the approval
 options trigger is hit near its right edge and the verified conversation
 menu item is hit-tested before activation. These are synthetic events
 (`isTrusted=false`); isolated real application verification remains required.
+
+## Fresh-composer effort identification (unsigned 0.1.4 candidate)
+
+When the visible editor has an explicit form or composer test-ID wrapper but the effort control is not inside that wrapper, the driver can check the same bounded local ancestry already used for accessible composers. Beyond the explicit wrapper, only a uniquely identified button with an explicit effort aria-label is accepted. A bare level label, another editor, ambiguous controls, a different form/dialog, or a conversation landmark cannot be used to guess the trigger. The existing current-level verification, hit-tested drag and resulting composer-label verification remain unchanged; an unknown current level is not guessed. See [fresh-composer evidence](FRESH-COMPOSER-EFFORT-EVIDENCE.md). No authenticated ChatGPT acceptance is established by these fixtures.
+
+## Three- and five-tick effort identification (independent unsigned candidate)
+
+The supported API levels remain Low, Medium and High. The complete visible label row must establish three or five distinct horizontal leaf labels, with the three supported labels contiguous and ordered. Additional labels are geometry only; never select them or infer their meaning. A partial track spanning only the supported subset is not sufficient. Current and final labels must exactly identify a supported level, not contain a matching word (Extra High is not High). Unknown, ambiguous, interleaved or unverified layouts fail closed. See [five-tick evidence](FIVE-TICK-EFFORT-EVIDENCE.md). No live UI layout or signed candidate acceptance is established.
+
+## Combined unsigned candidate
+
+The two identification corrections are evaluated together in [combined effort evidence](COMBINED-EFFORT-EVIDENCE.md). The common API remains unchanged. Prior individual evidence applies to its exact source, not automatically to the combined tree. No signing or live acceptance is authorized.
