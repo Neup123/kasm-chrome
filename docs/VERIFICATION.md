@@ -49,7 +49,7 @@ The six joint tests exercise two sibling-toolbar layouts with a complete five-ti
 
 | Outstanding gate | Current disposition | Missing evidence |
 | --- | --- | --- |
-| Candidate source and unsigned package | PASS, repository/CI scope for #16, #17 and #18 | Independent archive-byte receipt exists for #16 only; #17/#18 have CI source verification, not independently downloaded archive verification; no claim of signature trust |
+| Candidate source and unsigned package | PASS, repository/CI and independent archive-byte scope for #16, #17 and #18 | All three source-specific archive receipts recorded; no claim of signature trust |
 | Protected signing and release identity | BLOCKED / NOT RUN for 0.1.4 | Source-matching signed artifact, artifact hash and version, protected signing receipt and verified package identity |
 | Signed candidate Firefox runtime | NOT RUN for 0.1.4 | Stock Release policy installation, active signed version, ready bridge, internal fixture behavior, restart and restore results for the changed source; 0.1.3 results are historical comparison only |
 | Fresh-conversation effort trigger and five-tick layout | NOT RUN live | Independently observed actual composer, unique associated trigger, complete label row/track, current label, and exact outcome/error; synthetic layouts are not live markup |
@@ -59,6 +59,18 @@ The six joint tests exercise two sibling-toolbar layouts with a complete five-ti
 | Image-version rollback | NOT RUN | Evidence of actual prior-image/configuration rollback, preserved mount and restored functionality; same-image disposable recovery is insufficient |
 
 The scope and authority gates remain unchanged. The signing and deployed steps above are missing evidence, not authorization or instructions to execute them. Do not retry the closed authenticated channel or substitute an alternate path. No signing, deployment, merge or real account interaction is part of this reconciliation. All remaining gaps are explicitly classified and linked for the three source-specific candidates; this closes the documentation reconciliation, not the release or live acceptance gates. Do not create another evidence-only task unless genuinely new repository evidence or a separately authorized criterion emerges.
+
+
+### Independent archive-byte closure for PRs #17 and #18 (2026-11-27)
+
+The previous CI-only gap in this register is now closed. Downloaded the two exact published artifacts and independently verified local ZIP/XPI bytes, CRC, exact entry inventory and all seven Git blob identities against the tested source trees.
+
+| Draft and tested source | Artifact | ZIP SHA-256 | XPI SHA-256 | Result |
+| --- | --- | --- | --- | --- |
+| #17 `0175db13d0f98837e2b49b78e548db046679c376` | [15220692775](https://github.com/Neup123/kasm-chrome/actions/runs/46043162623/artifacts/15220692775) | `556fc62d01b05557394dd70ad6167af76e1952f6b8db643dc8077f1ee872d357` | `bf12cbf7328989dd133e3fafcd178d9642c778ead1cef667837f152ec0ee189b` | 7/7 blobs match; unsigned |
+| #18 `436cbd8b3dc16aa3b1b1791cec8e78992a549e91` | [15227822107](https://github.com/Neup123/kasm-chrome/actions/runs/46059206124/artifacts/15227822107) | `cbdb54c42daa18daabc7b2a7a871dec242f283ba66c0fb1001dd5217f8267c34` | `164ccc40613581f9dd2c2facc18886e1f1f4c5c484d08ae07a2ea857f7dc9252` | 7/7 blobs match; unsigned |
+
+Full per-file receipts: [#17](https://github.com/Neup123/kasm-chrome/blob/612939017089170a645bd242e2c49d8b70daa2d5/docs/FIVE-TICK-EFFORT-EVIDENCE.md) and [#18](https://github.com/Neup123/kasm-chrome/blob/90ab79836bd41799f7c79c24082cbf265796f377/docs/COMBINED-EFFORT-EVIDENCE.md). Each outer archive contains exactly one XPI; each XPI contains exactly seven expected files, no duplicate entries or signature files. Both manifests identify version 0.1.4 and extension ID `kasm-agent@chabad.gr`; content.js blob differs as expected between candidates. The earlier #16 archive receipt remains source-specific. These are byte-level provenance checks, not cryptographic signature acceptance, installed runtime or live UI evidence. All three unsigned candidate archive documentation gaps are closed. No remaining distinct offline documentation/evidence task is identified in the current register; signing and live acceptance remain closed. The earlier CI-only statements describe the state before this follow-up.
 
 ## Historical record: release 0.1.0 (2026-11-22)
 
