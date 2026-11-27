@@ -38,3 +38,11 @@ The synthetic DOM assertions are not positive tests against the real ChatGPT fro
 ## Remaining gate
 
 The isolated authenticated driver channel is blocked. Prior diagnostics encountered a Coolify Server Error and a subsequent command update was explicitly blocked. Do not retry that update, create a substitute execution channel, retrieve credentials, or touch existing sessions. The sole remaining acceptance items require the approved channel to be available and an authenticated, dedicated ChatGPT test conversation with the necessary controls and harmless test connector. The evidence above does not mark them complete.
+
+## Promotion candidate and channel handoff
+
+[Draft PR #13](https://github.com/Neup123/kasm-chrome/pull/13) stages the identical signed artifact on a separate main-based review branch, with a read-only isolated signed-Release CI job that checks the committed XPI rather than downloading the obsolete 0.1.2 signing run. No live deployment or merge is authorized. The deployed acceptance branch remains unchanged.
+
+The `kasm for tests` connection was reported configured in INFO, but the last permitted discovery exposed no driver tools or workspace connections to this conversation. This is a channel availability blocker, not an HTTP authentication failure: no driver request or error body was obtained. No further connection tests are authorized while the gate is closed. Keep all real UI checks NOT RUN.
+
+No subsequent isolated redeployment was required: the completed deployment already uses the source-matching signed 0.1.3 package. Runtime version and authenticated composer still require independent live confirmation.
