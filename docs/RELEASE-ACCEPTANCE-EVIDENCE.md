@@ -46,3 +46,7 @@ The isolated authenticated driver channel is blocked. Prior diagnostics encounte
 The `kasm for tests` connection was reported configured in INFO, but the last permitted discovery exposed no driver tools or workspace connections to this conversation. This is a channel availability blocker, not evidence of an HTTP authentication failure: no driver request or error body was obtained in the last discovery attempt. No further connection tests are authorized while the gate is closed. Keep all real UI checks NOT RUN.
 
 No subsequent isolated redeployment was performed: the recorded completed deployment points to a commit containing the source-matching signed 0.1.3 package. Runtime version and authenticated composer still require independent live confirmation.
+
+## Test-level traceability
+
+[Release test traceability](RELEASE-TEST-TRACEABILITY.md) maps all 73 executed automated tests to immutable source files and successful CI output, separates positive synthetic tests from negative signed-Firefox origin checks, and identifies the signed Release restart/persistence gap in the actual CI script. No new deployed evidence is claimed.
