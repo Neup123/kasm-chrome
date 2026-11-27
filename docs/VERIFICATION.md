@@ -26,6 +26,23 @@ All eight deployed acceptance criteria remain NOT RUN (0/8 verified). This is a 
 
 The completed evidence closes the repository/CI reconciliation item, not the live acceptance gate.
 
+## Candidate 0.1.4 — outstanding acceptance register (2026-11-27)
+
+[Draft PR #16](https://github.com/Neup123/kasm-chrome/pull/16) remains separate from the signed 0.1.3 integration branch and from draft #15's signed-runtime fixture. The [candidate evidence record](https://github.com/Neup123/kasm-chrome/blob/21e645ba399937c92380c454e459e330a571c58b/docs/FRESH-COMPOSER-EFFORT-EVIDENCE.md) contains the red/green identification tests, stale-package rejection receipts and independent archive inspection. Its [unsigned artifact 15206871717](https://github.com/Neup123/kasm-chrome/actions/runs/46018215466/artifacts/15206871717) is recorded as source-matching for all seven files and unsigned. The latest [candidate validation 46023497091](https://github.com/Neup123/kasm-chrome/actions/runs/46023497091/job/140588835502) completed successfully on `21e645ba399937c92380c454e459e330a571c58b`: 79/79 tests, zero failed/skipped; zero extension lint errors/warnings; API docs, Compose source controls and unsigned package verification. The job reports version 0.1.4, source_files_match=true and signature_entries_present=false. The archived package receipt is prior recorded evidence; this reconciliation rechecked the repository and final CI logs, not the archive bytes again. Candidate extension tree `cdfa6f1c9ee0cfec7846e1a909f1e1c9a9f4bd29` differs from the signed 0.1.3 integration tree `6e2ab512e420e8849832cc279171ee8c4d37ab1e`. Signed XPI and signed metadata blob identities are unchanged; there is no matching signed 0.1.4 package in the candidate draft.
+
+| Outstanding gate | Current disposition | Missing evidence |
+| --- | --- | --- |
+| Candidate source and unsigned package | PASS, repository/CI scope | No outstanding documentation receipt; no claim of signature trust |
+| Protected signing and release identity | BLOCKED / NOT RUN for 0.1.4 | Source-matching signed artifact, artifact hash and version, protected signing receipt and verified package identity |
+| Signed candidate Firefox runtime | NOT RUN for 0.1.4 | Stock Release policy installation, active signed version, ready bridge, internal fixture behavior, restart and restore results for the changed source; 0.1.3 results are historical comparison only |
+| Fresh-conversation effort trigger | NOT RUN live | Sanitized evidence of actual composer and unique associated trigger, current label, and exact observed outcome/error; no real markup is available in this record |
+| Effort mutation and readback | NOT RUN live | Actual authorized High selection and independent readback; synthetic fixture success is not a real result |
+| Other real controls | NOT RUN live | Control-specific receipts for approval, keyboard, inspect/click coordinates and interactive mapping on the authorized test context |
+| Deployed acceptance | 0/8 verified; NOT RUN | All eight deployed receipts specified in the signed 0.1.3 matrix above; candidate-specific results required for any later 0.1.4 acceptance claim |
+| Image-version rollback | NOT RUN | Evidence of actual prior-image/configuration rollback, preserved mount and restored functionality; same-image disposable recovery is insufficient |
+
+The scope and authority gates remain unchanged. The signing and deployed steps above are missing evidence, not authorization or instructions to execute them. Do not retry the closed authenticated channel or substitute an alternate path. No signing, deployment, merge or real account interaction is part of this reconciliation. All remaining gaps are explicitly classified and linked; this closes the documentation item, not the release or live acceptance gates. Do not create another evidence-only task unless genuinely new repository evidence or a separately authorized criterion emerges.
+
 ## Historical record: release 0.1.0 (2026-11-22)
 
 **Source and local behavior are tested. The extension is unsigned. No production
