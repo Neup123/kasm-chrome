@@ -158,3 +158,7 @@ Effort drag and approval use the same hit-test primitives; the approval
 options trigger is hit near its right edge and the verified conversation
 menu item is hit-tested before activation. These are synthetic events
 (`isTrusted=false`); isolated real application verification remains required.
+
+## Three- and five-tick effort identification (independent unsigned candidate)
+
+The supported API levels remain Low, Medium and High. The complete visible label row must establish three or five distinct horizontal leaf labels, with the three supported labels contiguous and ordered. Additional labels are geometry only; never select them or infer their meaning. A partial track spanning only the supported subset is not sufficient. Current and final labels must exactly identify a supported level, not contain a matching word (Extra High is not High). Unknown, ambiguous, interleaved or unverified layouts fail closed. See [five-tick evidence](FIVE-TICK-EFFORT-EVIDENCE.md). No live UI layout or signed candidate acceptance is established.

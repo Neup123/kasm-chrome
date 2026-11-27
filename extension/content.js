@@ -185,9 +185,15 @@
       fail(code, detail);
     }
     const effortLabel = button => {
-      const text = normalized(textOf(button) + " " + (button.getAttribute("aria-label") || ""));
-      const levels = protocol.EFFORTS.filter(level => new RegExp("\\b" + level + "\\b", "i").test(text));
-      return levels.length === 1 ? levels[0] : null;
+      // A word match would mistake "Extra High" for "High". Accept only
+      // complete supported labels (with an optional explicit effort prefix).
+      const labels = [textOf(button), button.getAttribute("aria-label") || ""]
+        .map(normalized).filter(label => label && !/^(?:thinking )?effort$/i.test(label));
+      const levels = labels.map(label => {
+        const value = label.replace(/^(?:thinking )?effort(?:\s*:\s*|\s+)/i, "");
+        return protocol.EFFORTS.find(level => level.toLowerCase() === value.toLowerCase());
+      });
+      return levels.length && levels.every(level => level && level === levels[0]) ? levels[0] : null;
     };
     function effortButton() {
       // ChatGPT can expose its composer solely through an accessible label:
@@ -374,24 +380,41 @@
 
     function effortGeometry(root, current, desired) {
       const labels = protocol.EFFORTS.map(level => unique(Array.from(root.querySelectorAll("*")).filter(el =>
-        !el.children.length && normalized(textOf(el)) === level && visible(el)), "EFFORT_TICKS_NOT_UNIQUE", "The three effort ticks were not uniquely identified."));
-      const rects = labels.map(el => el.getBoundingClientRect());
+        !el.children.length && normalized(textOf(el)) === level && visible(el)), "EFFORT_TICKS_NOT_UNIQUE", "Supported effort ticks were not uniquely identified."));
+      // The visible labels must establish one complete row. Extra labels are
+      // geometry only: the protocol still permits exactly Low/Medium/High.
+      const row = labels[0].parentElement;
+      if (!row || labels.some(el => el.parentElement !== row))
+        fail("EFFORT_GEOMETRY_UNVERIFIED", "Supported effort ticks do not share one identifiable label row.");
+      const rowLabels = Array.from(row.children).filter(el => normalized(textOf(el)));
+      if (![3,5].includes(rowLabels.length) || rowLabels.some(el => el.children.length || !visible(el)))
+        fail("EFFORT_GEOMETRY_UNVERIFIED", "The complete effort row must have three or five visible leaf labels.");
+      const names = rowLabels.map(el => normalized(textOf(el)));
+      if (new Set(names.map(name => name.toLowerCase())).size !== names.length)
+        fail("EFFORT_TICKS_NOT_UNIQUE", "The complete effort row contains duplicate labels.");
+      const supported = labels.map(el => rowLabels.indexOf(el));
+      if (supported[0] < 0 || !supported.every((index,i) => index === supported[0]+i))
+        fail("EFFORT_GEOMETRY_UNVERIFIED", "Supported effort ticks are not contiguous and ordered; no unsupported tick may be crossed.");
+      const rects = rowLabels.map(el => el.getBoundingClientRect());
       const xs = rects.map(r => r.left + r.width / 2);
-      if (!(xs[0] < xs[1] && xs[1] < xs[2])) fail("EFFORT_GEOMETRY_UNVERIFIED", "The three effort ticks do not form the expected horizontal sequence.");
+      const ys = rects.map(r => r.top + r.height / 2);
+      if (rects.some(r => !(r.width>0 && r.height>0)) || xs.some((x,i) => i>0 && !(xs[i-1]<x)) ||
+          Math.max(...ys)-Math.min(...ys)>12 || rects.some((r,i) => i>0 && r.left<rects[i-1].right))
+        fail("EFFORT_GEOMETRY_UNVERIFIED", "The complete effort ticks do not form one ordered horizontal row.");
       const labelTop = Math.min(...rects.map(r => r.top));
-      // Track may have no slider role. Use a visible narrow horizontal track
-      // spanning the three labels, immediately above their row; refuse ties.
+      const first=xs[0],last=xs[xs.length-1];
+      // Require the track to span the entire row, not just the supported
+      // subset. Keep the existing narrow-track geometry and hit-test path.
       const candidates = matches(root, 'div,span,input[type="range"],[role="slider"]').map(el => ({el,r:el.getBoundingClientRect()}))
-        .filter(({r}) => r.width >= (xs[2] - xs[0]) * .8 && r.height > 0 && r.height <= 32 &&
-          r.left <= xs[0] + 12 && r.right >= xs[2] - 12 && r.bottom <= labelTop + 3 && labelTop - r.bottom <= 48);
+        .filter(({r}) => r.width >= (last-first)*.8 && r.height > 0 && r.height <= 32 &&
+          r.left <= first+12 && r.right >= last-12 && r.bottom <= labelTop+3 && labelTop-r.bottom <= 48);
       candidates.sort((a,b) => (labelTop-a.r.bottom)-(labelTop-b.r.bottom) || a.r.height-b.r.height);
-      if (!candidates.length) fail("EFFORT_TRACK_NOT_FOUND", "No visible horizontal effort track matches the tick geometry.");
+      if (!candidates.length) fail("EFFORT_TRACK_NOT_FOUND", "No visible horizontal effort track spans the complete tick row.");
       const {el, r} = candidates[0];
       if (candidates.length > 1 && candidates[1].r.bottom === r.bottom && candidates[1].r.height === r.height &&
         !el.contains(candidates[1].el) && !candidates[1].el.contains(el))
         fail("EFFORT_TRACK_AMBIGUOUS", "Multiple unrelated tracks match the effort ticks.");
-      const index = level => protocol.EFFORTS.indexOf(level);
-      const tickX = level => Math.max(r.left + 1, Math.min(r.right - 1, xs[index(level)]));
+      const tickX = level => Math.max(r.left+1, Math.min(r.right-1, xs[supported[protocol.EFFORTS.indexOf(level)]]));
       return {el, y:r.top+r.height/2, from:tickX(current), to:tickX(desired)};
     }
     async function setEffort(request, message) {

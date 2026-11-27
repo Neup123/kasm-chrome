@@ -322,3 +322,76 @@ test('interactive map includes role-less drag affordances, implicit roles and ex
   const r=await h.command('tabs.mapInteractive');
   assert.equal(r.ok,true);assert.deepEqual(r.result.elements.map(e=>[e.role,e.text]),[['button','Button'],[null,'Track']]);h.close();
 });
+
+function fiveTickHarness({current='Medium', labels=['Minimal','Low','Medium','High','Extra High'], fullTrack=true, partialTrack=false, update='High'}={}) {
+  const h=harness('<form><div id="prompt-textarea"></div><button type="button" aria-label="Thinking effort"></button></form>');
+  const button=h.document.querySelector('button');
+  button.textContent=current;
+  const place=layout(h);place(button,10,100,100,20);
+  let opens=0;const releases=[];
+  button.onclick=()=>{
+    opens++;
+    const popup=h.document.createElement('section');popup.dataset.state='open';
+    popup.innerHTML='<div id="full"></div><div id="partial"></div><div id="ticks"></div>';
+    h.document.body.append(popup);
+    const ticks=popup.querySelector('#ticks');
+    labels.forEach((label,i)=>{
+      const el=h.document.createElement('span');el.textContent=label;ticks.append(el);
+      place(el,10+i*60,40,20,15);
+    });
+    const full=popup.querySelector('#full'), partial=popup.querySelector('#partial');
+    if(fullTrack) place(full,10,10,260,8);else full.remove();
+    // A plausible nearer partial track spans only Low, Medium, High.
+    if(partialTrack) place(partial,70,25,140,8);else partial.remove();
+    for(const track of [full,partial])track.addEventListener('pointerup',e=>{
+      releases.push({track:track.id,x:e.clientX});button.textContent=update;popup.remove();
+    });
+  };
+  return {...h,opens:()=>opens,releases};
+}
+test('five-tick effort identifies the full track and exact High tick instead of the nearer partial track',async()=>{
+  const h=fiveTickHarness({partialTrack:true});
+  try {
+    const reply=await h.command('tabs.setEffort',{effort:'High'});
+    assert.deepEqual(reply.result,{effort:'High',previous:'Medium',changed:true,verified:true},JSON.stringify(reply));
+    assert.deepEqual(h.releases,[{track:'full',x:200}]);
+    assert.deepEqual((await h.command('tabs.setEffort',{effort:'High'})).result,{effort:'High',changed:false,verified:true});
+    assert.equal(h.opens(),1);
+  } finally {h.close();}
+});
+test('five-tick effort rejects a partial track when no track spans the whole row',async()=>{
+  const h=fiveTickHarness({fullTrack:false,partialTrack:true});
+  try {
+    assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error.code,'EFFORT_TRACK_NOT_FOUND');
+    assert.deepEqual(h.releases,[]);
+  } finally {h.close();}
+});
+test('Extra High is not verified as High and must not trigger a drag',async()=>{
+  const h=fiveTickHarness({current:'Extra High'});
+  try {
+    assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error.code,'EFFORT_CURRENT_UNKNOWN');
+    assert.equal(h.opens(),0);assert.deepEqual(h.releases,[]);
+  } finally {h.close();}
+});
+test('five-tick effort rejects an unsupported level interleaved between supported ticks',async()=>{
+  const h=fiveTickHarness({labels:['Low','Medium','Intermediate','High','Extra High']});
+  try {
+    assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error.code,'EFFORT_GEOMETRY_UNVERIFIED');
+    assert.deepEqual(h.releases,[]);
+  } finally {h.close();}
+});
+test('five-tick effort rejects duplicate extra tick labels',async()=>{
+  const h=fiveTickHarness({labels:['Extra','Low','Medium','High','Extra']});
+  try {
+    assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error.code,'EFFORT_TICKS_NOT_UNIQUE');
+    assert.deepEqual(h.releases,[]);
+  } finally {h.close();}
+});
+test('five-tick effort does not treat Extra High readback as successful High',async()=>{
+  const h=fiveTickHarness({update:'Extra High'});
+  try {
+    const reply=await h.command('tabs.setEffort',{effort:'High'});
+    assert.equal(reply.error?.code,'EFFORT_NOT_APPLIED',JSON.stringify(reply));
+    assert.deepEqual(h.releases,[{track:'full',x:200}]);
+  } finally {h.close();}
+});
