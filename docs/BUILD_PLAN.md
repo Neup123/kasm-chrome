@@ -80,7 +80,7 @@ signing-only secrets and never enter runtime images or the extension.
 
 The original design and delivery sequence above are historical; they do not authorize actions on the production stack. Signed 0.1.3 source/package verification, the isolated signed Firefox fixture and all 73 automated tests passed. The isolated integration branch is `test/release-0.1.2-coolify-acceptance` (historical branch name). The acceptance documentation is under review in draft PR #12 against that branch alone. See [Release acceptance evidence](RELEASE-ACCEPTANCE-EVIDENCE.md) and [test traceability](RELEASE-TEST-TRACEABILITY.md). The source-defined separate isolated profile is not a change to the original production profile.
 
-The authenticated isolated driver gate is closed; the eight deployed acceptance criteria and actual ChatGPT control tests remain NOT RUN. Signed Release restart/rollback are not proven by ESR restart tests. Do not retry the channel, request credentials, merge or deploy. Private snapshots, credentials and real records do not belong in repository evidence.
+The authenticated isolated driver gate is closed; the eight deployed acceptance criteria and actual ChatGPT control tests remain NOT RUN. Signed Release restart is now proven on a disposable CI fixture in [draft PR #15](https://github.com/Neup123/kasm-chrome/pull/15) ([signed Release restart fixture job 140511960304](https://github.com/Neup123/kasm-chrome/actions/runs/46000898359/job/140511960304)); deployed restart/rollback are not established by either Release or ESR fixture tests. Do not retry the channel, request credentials, merge or deploy. Private snapshots, credentials and real records do not belong in repository evidence.
 
 ## Evidence boundaries
 

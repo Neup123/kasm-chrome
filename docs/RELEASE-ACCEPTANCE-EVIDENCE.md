@@ -50,3 +50,7 @@ No subsequent isolated redeployment was performed: the recorded completed deploy
 ## Test-level traceability
 
 [Release test traceability](RELEASE-TEST-TRACEABILITY.md) maps all 73 executed automated tests to immutable source files and successful CI output, separates positive synthetic tests from negative signed-Firefox origin checks, and identifies the signed Release restart/persistence gap in the actual CI script. No new deployed evidence is claimed.
+
+## Signed Release restart fixture follow-up
+
+[draft PR #15](https://github.com/Neup123/kasm-chrome/pull/15) and [signed Release restart fixture job 140511960304](https://github.com/Neup123/kasm-chrome/actions/runs/46000898359/job/140511960304) independently establish signed 0.1.3 disposable CI driver/browser restart, reconnection, unchanged synthetic context/volume identity and persistent independent markers. They do not prove any deployed restart, runtime mount, rollback, backup or real ChatGPT action. The prior deployment receipt and closed gate remain unchanged.

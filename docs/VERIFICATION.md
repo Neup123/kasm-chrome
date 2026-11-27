@@ -10,8 +10,8 @@ The isolated integration branch `test/release-0.1.2-coolify-acceptance` contains
 | Two named containers visible in desktop UI | Named contexts created via CI API | Actual desktop display and icon/color |
 | ChatGPT tab in named context | Fresh internal fixture tab created in isolated CI | Actual ChatGPT tab and named-context binding |
 | Read/type/send | Internal fixture type/click/readback in real Firefox | Authenticated composer, real conversation send/readback |
-| Reconnect after restart | Earlier isolated ESR integration reconnect and persistence, not signed Release restart | Current deployed stack reconnect and persistence |
-| Independent sessions | Signed Release fixture cookies and localStorage isolated | Two actual deployed test contexts |
+| Reconnect after restart | Earlier ESR and [signed Release restart fixture job 140511960304](https://github.com/Neup123/kasm-chrome/actions/runs/46000898359/job/140511960304): signed Release disposable driver/browser restart, reconnect and marker persistence | Current deployed stack reconnect and persistence |
+| Independent sessions | Signed Release fixture cookies and localStorage isolated, including both disposable CI restarts | Two actual deployed test contexts |
 | Proxy authentication | Isolated gateway CI rejects unauthorized browser/API access | Live HTTPS routing and authentication; production Authelia explicitly outside scope |
 | Rollback and volume preservation | Separate source-defined profile volume and no shared host ports in CI | Runtime mount identity, backup/restore and rollback demonstration |
 

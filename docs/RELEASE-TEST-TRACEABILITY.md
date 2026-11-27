@@ -34,6 +34,11 @@ The signed Release branch of [run-esr-smoke.sh L58-L77](https://github.com/Neup1
 
 The isolated Compose CI validates application-scoped topology and the signed Release fixture demonstrates independent cookie/localStorage contexts before restart. None proves persistence after restarting the signed Release deployment, actual runtime mount identity, backup recovery, or rollback. The original deployed restart/persistence and rollback criteria remain NOT RUN.
 
+
+### Follow-up: signed Release restart fixture (2026-11-27)
+
+[draft PR #15](https://github.com/Neup123/kasm-chrome/pull/15) adds a separate opt-in CI-only restart path; [signed Release restart fixture job 140511960304](https://github.com/Neup123/kasm-chrome/actions/runs/46000898359/job/140511960304) passed on commit `ab9a59251e71b1da0186e7caa44b9c1475306f0c`. With the exact signed 0.1.3 artifact in Firefox Release 160.0.1, the disposable driver and browser both restarted, the bridge reconnected, the same named contexts and independent cookie/localStorage markers were read back without reseeding, the CI profile volume identity remained unchanged, and the extension remained active with signedState 2 after browser restart. The original smoke result above remains historical and unchanged. This closes the signed Release **CI fixture** restart evidence gap only; deployed stack restart/persistence, runtime mount, backup, rollback and real ChatGPT controls remain NOT RUN. The authenticated channel remains closed.
+
 ## Acceptance disposition
 
 All positive synthetic results, negative origin checks, source package verification and previously observed isolated CI results are retained. The complete eight-criterion deployed evidence matrix remains in [Verification record](VERIFICATION.md); release identities and deployment receipt are in [Release acceptance evidence](RELEASE-ACCEPTANCE-EVIDENCE.md). No release is authorized on the basis of this record alone.
