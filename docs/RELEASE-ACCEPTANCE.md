@@ -4,7 +4,11 @@ application UUID ykaquddwjrtu8of2qm0cafzq. Never uses a production profile,
 network, route, or credential. No automatic Coolify deployment is configured.
 
 - Compose: /docker-compose.release-acceptance.yml
-- Only gateway port 8081 is routed, over a unique HTTPS hostname.
+- Only the gateway is routed, on its internal port 80 (8081 is retained for internal probes).
+  External HTTPS uses the existing server listener on port 1004, not port 443.
+  Browser: https://kasm-release-acceptance-012.chgr.duckdns.org:1004/.
+  Driver: https://kasm-release-acceptance-012.chgr.duckdns.org:1004/agent-driver/v1.
+  The exact API base is an authenticated status alias; unauthenticated calls must return 401, not 404.
 - Coolify generates distinct SERVICE_PASSWORD_ACCEPTANCEVNC and
   SERVICE_HEX_64_ACCEPTANCEAPI credentials. Do not print, retrieve into chat,
   or reuse these values. The init service creates a separate random WS token

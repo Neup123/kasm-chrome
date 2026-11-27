@@ -89,10 +89,10 @@ services:
       context: .
       dockerfile: firefox/Dockerfile.acceptance-gateway
     environment:
-      SERVICE_URL_GATEWAY_8081: /
+      SERVICE_URL_GATEWAY_80: /
     volumes:
       - acceptance-gateway-auth:/run/gateway-auth:ro
-    expose: ["8081"]
+    expose: ["80", "8081"]
     restart: unless-stopped
     depends_on: [firefox, driver]
     networks: [acceptance-private, acceptance-front]

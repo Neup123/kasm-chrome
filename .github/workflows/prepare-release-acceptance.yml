@@ -62,6 +62,7 @@ jobs:
           assert s['init']['network_mode']=='none'
           assert set(s['firefox']['networks'])=={'acceptance-private','acceptance-egress'}
           assert set(s['gateway']['networks'])=={'acceptance-private','acceptance-front'}
+          assert set(s['gateway']['expose'])=={'80','8081'}
           assert set(s['bootstrap']['networks'])=={'acceptance-private'}
           assert s['firefox']['build']['dockerfile']=='firefox/Dockerfile'
           assert any(v['source']=='acceptance-profile' and v['target']=='/home/kasm-user' for v in s['firefox']['volumes'])

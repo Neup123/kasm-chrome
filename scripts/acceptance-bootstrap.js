@@ -26,6 +26,8 @@ async function main(){
   }
   assert.ok(ready,'Signed 0.1.3 bridge not ready');
   assert.equal((await req('/status',null,false)).status,401);
+  assert.equal((await req('',null,false)).status,401);
+  assert.equal((await req('')).body.result?.bridge?.extensionVersion,'0.1.3');
   assert.equal((await fetch(root+'/',{redirect:'manual'})).status,401);
   console.log('PASS: gateway browser and driver reject unauthenticated access; authenticated 0.1.3 bridge ready');
   const container='Kasm Release Acceptance';
