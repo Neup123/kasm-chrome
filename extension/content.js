@@ -190,17 +190,39 @@
       return levels.length === 1 ? levels[0] : null;
     };
     function effortButton() {
-      const composer = doc.querySelector("#prompt-textarea");
-      const root = composer?.closest("form") || composer?.closest('[data-testid="composer"]');
-      if (!root) fail("EFFORT_COMPOSER_NOT_FOUND", "The ChatGPT composer could not be uniquely identified.");
-      const candidates = matches(root, "button").filter(button => {
-        const name = normalized((button.getAttribute("aria-label") || "") + " " + (button.getAttribute("data-testid") || "") + " " + textOf(button));
-        return /effort|thinking/i.test(name) && (effortLabel(button) || /effort/i.test(name));
-      });
-      // Some composers expose only the current level as the button's label.
-      const exact = candidates.length ? candidates : matches(root, "button").filter(button =>
-        protocol.EFFORTS.includes(normalized(textOf(button))) || protocol.EFFORTS.includes(button.getAttribute("aria-label")));
-      return unique(exact, "EFFORT_PICKER_NOT_UNIQUE", "No unique thinking-effort control was found in the composer.");
+      // ChatGPT can expose its composer solely through an accessible label:
+      // neither prompt-textarea nor a composer test ID is guaranteed.
+      const anchorSelector = '#prompt-textarea,[contenteditable="true"][aria-label="Ask ChatGPT"],[contenteditable="plaintext-only"][aria-label="Ask ChatGPT"],[contenteditable=""][aria-label="Ask ChatGPT"]';
+      const anchors = matches(doc, anchorSelector);
+      if (!anchors.length) fail("EFFORT_COMPOSER_NOT_FOUND", "No visible ChatGPT composer anchor was found.");
+      if (anchors.length !== 1) fail("EFFORT_COMPOSER_AMBIGUOUS", "Multiple visible ChatGPT composer anchors were found.");
+      const composer = anchors[0];
+      const explicitRoot = composer.closest('[data-testid="composer"],form');
+      function candidates(root) {
+        const buttons = matches(root, "button,[role=button]");
+        const named = buttons.filter(button => {
+          const name = normalized((button.getAttribute("aria-label") || "") + " " + (button.getAttribute("data-testid") || "") + " " + textOf(button));
+          return /effort|thinking/i.test(name) && (effortLabel(button) || /effort/i.test(name));
+        });
+        const exact = buttons.filter(button =>
+          protocol.EFFORTS.includes(normalized(textOf(button))) || protocol.EFFORTS.includes(button.getAttribute("aria-label")));
+        return [...new Set([...named,...exact])];
+      }
+      if (explicitRoot) {
+        return unique(candidates(explicitRoot), "EFFORT_PICKER_NOT_UNIQUE", "No unique thinking-effort control was found in the composer.");
+      }
+      // For an unlabeled wrapper, walk only the local composer ancestry.
+      // Never search an entire conversation, main region, or document for
+      // a button labelled High/Medium/Low.
+      let root = composer.parentElement;
+      for (let depth = 0; root && depth < 6; depth++, root = root.parentElement) {
+        if (root.matches('html,body,main,article,nav,aside,header,footer,[role=main],[role=dialog],[role=log],[role=feed],[data-message-author-role]')) break;
+        const otherEditors = matches(root,'textarea,[contenteditable="true"],[contenteditable="plaintext-only"],[contenteditable=""]').filter(el=>el!==composer && !composer.contains(el) && !el.contains(composer));
+        if (otherEditors.length) fail("EFFORT_COMPOSER_AMBIGUOUS", "The local composer wrapper contains another visible editor.");
+        const found = candidates(root);
+        if (found.length) return unique(found, "EFFORT_PICKER_NOT_UNIQUE", "Multiple thinking-effort controls were found in the local composer wrapper.");
+      }
+      fail("EFFORT_PICKER_NOT_UNIQUE", "No unique thinking-effort control was found near the accessible composer anchor.");
     }
     function effortPopup() {
       const roots = matches(doc, '[data-state="open"],[role="dialog"],[role="menu"],[data-radix-popper-content-wrapper]');
