@@ -72,14 +72,25 @@ for _ in range(45):
 else:
     raise SystemExit('Firefox Release did not report active trusted signed extension')
 PY
-  # Full fixture suite already passed; keep this signature acceptance check bounded.
   echo 'PASS: stock Firefox Release signed policy installation and live bridge'
-  exit 0
+  # Keep the existing signature smoke bounded unless the CI-only restart job opts in.
+  if [ "${SIGNED_RELEASE_RESTART_SMOKE:-0}" != 1 ]; then exit 0; fi
+  mode=(--signed-release)
+else
+  docker exec "$browser" firefox-esr --version
+  docker exec -i "$driver" node - "$version" < scripts/esr-smoke.js
+  mode=()
 fi
-docker exec "$browser" firefox-esr --version
-docker exec -i "$driver" node - "$version" < scripts/esr-smoke.js
+# Check the fresh CI volume identity, not any existing profile or mount.
+profile_mount() {
+  docker inspect --format '{{range .Mounts}}{{if eq .Destination "/esr-profile"}}{{.Name}}{{end}}{{end}}' "$browser"
+}
+test "$(profile_mount)" = "$volume"
+driver_started=$(docker inspect --format '{{.State.StartedAt}}' "$driver")
 docker restart "$driver"
-docker exec -i "$driver" node - "$version" --after-restart < scripts/esr-smoke.js
+test "$(docker inspect --format '{{.State.StartedAt}}' "$driver")" != "$driver_started"
+docker exec -i "$driver" node - "$version" "${mode[@]}" --after-restart < scripts/esr-smoke.js
+echo 'PASS: disposable driver restart, reconnection and fixture readback'
 # Profile layout differs across Firefox versions. Verify the actual running
 # process uses the intended mounted path, and print only synthetic-test
 # diagnostics. The independent API readback after container restart remains
@@ -87,7 +98,7 @@ docker exec -i "$driver" node - "$version" --after-restart < scripts/esr-smoke.j
 docker exec -i "$browser" python3 - <<'PY'
 import pathlib, os, time
 root=pathlib.Path('/esr-profile')
-assert os.path.ismount(root), 'ESR profile is not a mount'
+assert os.path.ismount(root), 'CI profile is not a mount'
 # Wait for Firefox background writes; no production data in this profile.
 deadline=time.monotonic()+45
 while time.monotonic()<deadline:
@@ -104,6 +115,28 @@ print('PASS: actual Firefox profile files exist in the isolated mounted volume')
 print('Profile diagnostic: local storage DB paths:', sorted(str(p.relative_to(root)) for p in root.rglob('data.sqlite')))
 time.sleep(15)
 PY
+browser_started=$(docker inspect --format '{{.State.StartedAt}}' "$browser")
 docker restart --time 30 "$browser"
-docker exec -i "$driver" node - "$version" --after-restart < scripts/esr-smoke.js
-echo 'PASS: Kasm ESR restart, bridge reconnect and isolated fixture persistence'
+test "$(docker inspect --format '{{.State.StartedAt}}' "$browser")" != "$browser_started"
+test "$(profile_mount)" = "$volume"
+docker exec -i "$driver" node - "$version" "${mode[@]}" --after-restart < scripts/esr-smoke.js
+if [ "${SIGNED_RELEASE_SMOKE:-0}" = 1 ]; then
+  docker exec -i "$browser" python3 - "$version" <<'PY'
+import json, pathlib, sys, time
+path = pathlib.Path('/esr-profile/extensions.json')
+for _ in range(45):
+    try:
+        addon=next(a for a in json.loads(path.read_text())['addons'] if a['id']=='kasm-agent@chabad.gr')
+        if addon.get('version') == sys.argv[1] and addon.get('active') is True and addon.get('signedState',-999) >= 2 and not addon.get('appDisabled') and not addon.get('userDisabled'):
+            print('PASS: same active signed version after Firefox restart',json.dumps({k:addon.get(k) for k in ('id','version','active','signedState','appDisabled','userDisabled')}))
+            break
+    except (OSError,ValueError,KeyError,StopIteration):
+        pass
+    time.sleep(1)
+else:
+    raise SystemExit('Firefox Release did not report active trusted signed extension after restart')
+PY
+  echo 'PASS: signed Firefox Release restart, same isolated CI profile and fixture persistence'
+else
+  echo 'PASS: Kasm ESR restart, bridge reconnect and isolated fixture persistence'
+fi

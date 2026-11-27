@@ -1,0 +1,31 @@
+name: Signed Release restart fixture (isolated CI only)
+on:
+  pull_request:
+    branches: ['test/release-0.1.2-coolify-acceptance']
+    paths:
+      - '.github/workflows/signed-release-restart-fixture.yml'
+      - 'scripts/run-esr-smoke.sh'
+      - 'scripts/esr-smoke.js'
+      - 'artifacts/kasm-agent-signed.xpi'
+      - 'artifacts/signed-artifact.json'
+permissions:
+  contents: read
+jobs:
+  restart-fixture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Verify the reviewed committed signed package
+        run: |
+          test "$(git rev-parse HEAD:extension)" = 6e2ab512e420e8849832cc279171ee8c4d37ab1e
+          python3 scripts/verify-xpi.py artifacts/kasm-agent-signed.xpi --require-signature --metadata artifacts/signed-artifact.json
+          bash -n scripts/run-esr-smoke.sh
+      - name: Restart only disposable CI fixture containers
+        env:
+          SIGNED_RELEASE_SMOKE: '1'
+          SIGNED_RELEASE_RESTART_SMOKE: '1'
+        run: bash scripts/run-esr-smoke.sh
