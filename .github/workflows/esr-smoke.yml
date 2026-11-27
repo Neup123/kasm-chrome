@@ -2,6 +2,9 @@ name: Kasm private ESR integration
 on:
   push:
     branches: ['test/firefox-esr-private']
+  pull_request:
+    branches: [main]
+    paths: ['extension/**', 'driver/**', 'scripts/esr-smoke.js', 'scripts/run-esr-smoke.sh', '.github/workflows/esr-smoke.yml']
   workflow_dispatch:
 permissions:
   contents: read

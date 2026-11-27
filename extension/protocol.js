@@ -17,11 +17,15 @@
   });
   const COMMANDS = Object.freeze([
     'containers.ensure', 'containers.list', 'tabs.create', 'tabs.navigate',
-    'tabs.close', 'tabs.list', 'tabs.readText', 'tabs.eval', 'tabs.click', 'tabs.type'
+    'tabs.close', 'tabs.list', 'tabs.readText', 'tabs.eval', 'tabs.click', 'tabs.type',
+    'tabs.setEffort', 'tabs.approve', 'tabs.key', 'tabs.inspectAt', 'tabs.clickAt', 'tabs.mapInteractive'
   ]);
   const COLORS = Object.freeze(['blue', 'turquoise', 'green', 'yellow', 'orange', 'red', 'pink', 'purple', 'toolbar']);
   const ICONS = Object.freeze(['fingerprint', 'briefcase', 'dollar', 'cart', 'circle', 'gift', 'vacation', 'food']);
   const PROBES = Object.freeze(['page', 'elements', 'storage']);
+  const EFFORTS = Object.freeze(['Low', 'Medium', 'High']);
+  const KEY_PATTERN = '^(?:(?:Ctrl|Alt|Shift|Meta)\\+)*(?:Escape|Enter|ArrowUp|ArrowDown|ArrowLeft|ArrowRight|Tab|Backspace|Delete|Home|End|PageUp|PageDown|[A-Z0-9])$';
+  const SERVICE_PATTERN = '^[A-Za-z0-9][A-Za-z0-9 ._&-]{0,79}$';
   const COMMON_FIELDS = ['id', 'cmd', 'container', 'deadline', 'timeoutMs'];
   const FIELDS = Object.freeze({
     'containers.ensure': ['color', 'icon'], 'containers.list': [],
@@ -30,7 +34,11 @@
     'tabs.readText': ['tabId', 'selector', 'maxLength'],
     'tabs.eval': ['tabId', 'probe', 'selector'],
     'tabs.click': ['tabId', 'selector'],
-    'tabs.type': ['tabId', 'selector', 'text', 'clear']
+    'tabs.type': ['tabId', 'selector', 'text', 'clear'],
+    'tabs.setEffort': ['tabId', 'effort'], 'tabs.approve': ['tabId', 'service'],
+    'tabs.key': ['tabId', 'key'],
+    'tabs.inspectAt': ['tabId', 'x', 'y'], 'tabs.clickAt': ['tabId', 'x', 'y', 'inspectionId'],
+    'tabs.mapInteractive': ['tabId']
   });
 
   class ProtocolError extends Error {
@@ -108,7 +116,37 @@
       if (!PROBES.includes(input.probe)) fail('INVALID_COMMAND', 'probe must be page, elements, or storage.');
       result.probe = input.probe;
     }
+    if (input.cmd === 'tabs.setEffort') {
+      if (!EFFORTS.includes(input.effort)) fail('INVALID_COMMAND', 'effort must be Low, Medium, or High.');
+      result.effort = input.effort;
+    }
+    if (input.cmd === 'tabs.approve' && input.service !== undefined) {
+      if (typeof input.service !== 'string' || !new RegExp(SERVICE_PATTERN).test(input.service) || input.service.trim() !== input.service)
+        fail('INVALID_COMMAND', 'service must be the exact bounded service name.');
+      result.service = input.service;
+    }
+    if (input.cmd === 'tabs.key') {
+      if (typeof input.key !== 'string' || input.key.length > 64 || !new RegExp(KEY_PATTERN).test(input.key))
+        fail('INVALID_COMMAND', 'Unsupported key or shortcut.');
+      const parts = input.key.split('+');
+      const modifiers = parts.slice(0, -1);
+      if (new Set(modifiers).size !== modifiers.length || (/^[A-Z0-9]$/.test(parts.at(-1)) && !modifiers.length))
+        fail('INVALID_COMMAND', 'Use a named key or a modified letter/digit without repeated modifiers.');
+      result.key = input.key;
+    }
+    if (input.cmd === 'tabs.inspectAt' || input.cmd === 'tabs.clickAt') {
+      for (const key of ['x','y']) {
+        if (typeof input[key] !== 'number' || !Number.isFinite(input[key]) || input[key] < 0 || input[key] > 32767)
+          fail('INVALID_COMMAND', 'Viewport coordinates must be finite CSS pixels from 0 to 32767.');
+        result[key] = input[key];
+      }
+    }
+    if (input.cmd === 'tabs.clickAt') {
+      if (typeof input.inspectionId !== 'string' || !/^[a-f0-9]{32}$/.test(input.inspectionId))
+        fail('INVALID_COMMAND', 'A fresh inspectionId from tabs.inspectAt is required.');
+      result.inspectionId = input.inspectionId;
+    }
     return result;
   }
-  return Object.freeze({ PROTOCOL_VERSION, EXTENSION_ID, WS_URL, isValidSecret, LIMITS, COMMANDS, FIELDS, COLORS, ICONS, PROBES, ProtocolError, validateCommand, isAllowedUrl });
+  return Object.freeze({ PROTOCOL_VERSION, EXTENSION_ID, WS_URL, isValidSecret, LIMITS, COMMANDS, FIELDS, COLORS, ICONS, PROBES, EFFORTS, KEY_PATTERN, SERVICE_PATTERN, ProtocolError, validateCommand, isAllowedUrl });
 });

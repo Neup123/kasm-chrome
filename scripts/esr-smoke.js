@@ -26,8 +26,8 @@ async function until(fn, label, ms=120000) {
 async function ready() {
   return until(async()=>{
     const r=await request('/status');
-    return r.body.result?.bridge?.state==='ready'&&r.body.result.bridge.extensionVersion==='0.1.1';
-  },'policy-installed unsigned extension ready');
+    return r.body.result?.bridge?.state==='ready'&&r.body.result.bridge.extensionVersion===process.argv[2];
+  },'policy-installed extension ready');
 }
 const fixture='http://driver:8080/fixtures/session';
 async function read(container,tabId,marker) {
@@ -38,7 +38,7 @@ async function read(container,tabId,marker) {
 }
 async function main(){
   await ready();
-  console.log('PASS: unsigned 0.1.1 policy install and live bridge');
+  console.log('PASS: '+(process.argv.includes('--signed-release')?'signed Release ':'unsigned ESR ')+process.argv[2]+' policy install and live bridge');
   assert.equal((await request('/status',null,false)).status,401);
   console.log('PASS: API authentication');
   const identityPath='/tmp/esr-smoke-identities.json';
@@ -75,6 +75,17 @@ async function main(){
   await command('tabs.click',{container:a.name,tabId:ta.tabId,selector:'#send'});
   await read(a.name,ta.tabId,'Sent placeholder: ESR synthetic test');
   console.log('PASS: type click and readback');
+  await command('tabs.key',{container:a.name,tabId:ta.tabId,key:'Escape'});
+  await read(a.name,ta.tabId,'Key event: Escape');
+  for(const [cmd,fields] of [['tabs.approve',{service:'GitHub'}],['tabs.setEffort',{effort:'High'}]]) {
+    const r=await request('/commands',{cmd,container:a.name,tabId:ta.tabId,...fields});
+    assert.equal(r.body.error?.code,'URL_FORBIDDEN');
+  }
+  for(const [cmd,fields] of [['tabs.inspectAt',{x:1,y:1}],['tabs.clickAt',{x:1,y:1,inspectionId:'a'.repeat(32)}],['tabs.mapInteractive',{}]]) {
+    const r=await request('/commands',{cmd,container:a.name,tabId:ta.tabId,...fields});
+    assert.equal(r.body.error?.code,'URL_FORBIDDEN');
+  }
+  console.log('PASS: synthetic key event and ChatGPT-only guard through real Firefox');
   const wrong=await request('/commands',{cmd:'tabs.readText',container:b.name,tabId:ta.tabId});
   assert.equal(wrong.body.error?.code,'CONTAINER_MISMATCH');
   console.log('PASS: wrong-context rejection');

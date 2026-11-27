@@ -95,6 +95,14 @@ container IDs when issuing subsequent commands.
 | `tabs.click` | `container`, `tabId`, `selector` | None | Direct `.click()` on exactly one verified element |
 | `tabs.type` | `container`, `tabId`, `selector`, `text` | `clear` | Native setter/editing plus input/change events; verify retained text |
 
+| `tabs.setEffort` | `container`, `tabId`, `effort` | None | Verified composer effort label |
+| `tabs.approve` | `container`, `tabId` | `service` | Inspect prompt or explicitly grant full-conversation authority |
+| `tabs.key` | `container`, `tabId`, `key` | None | Synthetic DOM keydown/keyup |
+
+| `tabs.inspectAt` | `container`, `tabId`, `x`, `y` | None | Hit element, ancestors and one-use inspection ID |
+| `tabs.clickAt` | `container`, `tabId`, `x`, `y`, `inspectionId` | None | Inspected coordinate pointer/mouse dispatch |
+| `tabs.mapInteractive` | `container`, `tabId` | None | Visible interactive control geometry |
+
 Every tab command requires an exact named container. Duplicate names are errors;
 the driver never silently chooses one. A tab's current cookie store and URL are
 checked immediately before the action. DOM commands additionally bind to a
@@ -190,3 +198,60 @@ The owner signs in once in each container after deployment. The automation
 never enters credentials or handles 2FA. Cookies persist in the existing Kasm
 home volume; placeholder pages are used to verify separation without real
 logins.
+
+### Conversation controls (0.1.2)
+ 
+All use the existing named container, tab ID, document token, deadline and replay
+guard. No automatic approval or retry occurs. `tabs.setEffort` and
+`tabs.approve` are restricted to https://chatgpt.com, not the fixture.
+ 
+- `tabs.setEffort`, `effort: "Low" | "Medium" | "High"`: locate the composer,
+  open the effort picker, drag the identified track and verify the composer
+  label. No Pro selection. Unknown or ambiguous markup, or a label that does
+  not change, fails explicitly.
+- `tabs.approve`: omit `service` for read-only inspection, returning
+  `found`, exact question and description text, and `approved:false`.
+  For a grant, explicitly supply the exact service name (e.g. `"GitHub"`).
+  The packaged action matches the question, opens the Approval options menu,
+  checks the second item's exact full-conversation label, and verifies that
+  the form disappears. It never activates Allow once, guesses a menu item, or
+  grants an unrequested service. A timeout after activation is an unknown
+  outcome; inspect before retrying. English UI wording is required.
+- `tabs.key`, `key: "Escape"`, `"Enter"`, `"ArrowDown"`, or
+  `"Ctrl+Shift+M"`: dispatch bounded synthetic keydown/keyup events on the
+  target document's focused element. These are not trusted native input,
+  cannot invoke browser-level shortcuts or guarantee default browser editing
+  or form submission. The result reports dispatch and default prevention,
+  not application acceptance. Password/file/credential inputs are excluded.
+ 
+The effort geometry and approval markup are based on reported UI observations
+and synthetic fixtures; no claim of real ChatGPT compatibility is made until
+a separately authorized, isolated account acceptance check. The existing
+signed 0.1.1 artifact remains historical and must not be used to build 0.1.2.
+
+### Viewport inspection and coordinate controls
+
+These three commands are ChatGPT-only. Coordinates are CSS viewport pixels,
+not page-scroll offsets or screenshot/device pixels. The map returns up to 150
+visible enabled semantic controls and common role-less pointer/drag affordances
+(bounded labels/text and bounding rectangles; scanning capped at 10,000 nodes);
+it reports truncation and is not a screenshot or guarantee of hitability.
+Role-less controls are reachable with point inspection.
+
+- `tabs.mapInteractive`: no extra fields; read-only visible control inventory.
+- `tabs.inspectAt`: `x`, `y`; hit-tests with elementFromPoint and returns the
+  element plus ancestors (tag, explicit role, ariaLabel, text, rect), viewport
+  and an inspectionId. A new inspection supersedes the previous one.
+- `tabs.clickAt`: identical `x`, `y`, and the returned `inspectionId`.
+  The one-use inspection expires after 30 seconds and is bound to the document,
+  URL, exact target, ancestry and geometry. Changed or covered targets fail.
+  The action dispatches pointer/mouse events at the inspected point, not a
+  center click or native browser input. Inspect the application's response
+  before retrying; dispatch does not establish acceptance.
+
+No new host permission, arbitrary code, frame traversal, credential input,
+automatic approval, replay or native privileged keyboard/pointer API is added.
+Effort drag and approval use the same hit-test primitives; the approval
+options trigger is hit near its right edge and the verified conversation
+menu item is hit-tested before activation. These are synthetic events
+(`isTrusted=false`); isolated real application verification remains required.

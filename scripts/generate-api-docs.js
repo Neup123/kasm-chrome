@@ -2,7 +2,7 @@
 'use strict';
 const fs = require('node:fs');
 const path = require('node:path');
-const {COMMANDS,FIELDS,LIMITS,COLORS,ICONS,PROBES} = require('../extension/protocol');
+const {COMMANDS,FIELDS,LIMITS,COLORS,ICONS,PROBES,EFFORTS,KEY_PATTERN,SERVICE_PATTERN} = require('../extension/protocol');
 const properties = {
   id:{type:'string',maxLength:LIMITS.maxIdLength,pattern:'^[A-Za-z0-9][A-Za-z0-9_.:-]*$',description:'Unique request ID; generated when omitted. Accepted IDs are retained for 15 minutes to reject replay.'},
   container:{type:'string',minLength:1,maxLength:LIMITS.maxContainerLength,description:'Exact, unambiguous Firefox contextual-identity name.'},
@@ -14,12 +14,18 @@ const properties = {
   text:{type:'string',maxLength:LIMITS.maxTextLength},
   maxLength:{type:'integer',minimum:1,maximum:LIMITS.maxReadTextLength,default:LIMITS.maxReadTextLength},
   probe:{type:'string',enum:PROBES,description:'Packaged diagnostics only. No arbitrary JavaScript evaluation.'},
+  effort:{type:'string',enum:EFFORTS},
+  service:{type:'string',pattern:SERVICE_PATTERN,description:'Exact service name; omit for read-only approval inspection.'},
+  key:{type:'string',maxLength:64,pattern:KEY_PATTERN,description:'Named key or modified letter/digit; synthetic DOM events only.'},
+  x:{type:'number',minimum:0,maximum:32767,description:'Viewport CSS-pixel x coordinate.'},
+  y:{type:'number',minimum:0,maximum:32767,description:'Viewport CSS-pixel y coordinate.'},
+  inspectionId:{type:'string',pattern:'^[a-f0-9]{32}$',description:'Single-use inspection ID returned by tabs.inspectAt, valid for 30 seconds in the same document.'},
   timeoutMs:{type:'integer',minimum:100,maximum:LIMITS.maxTimeoutMs,default:15000}
 };
 const schemas=COMMANDS.map(cmd=>{
   const keys=['id','timeoutMs',...(cmd==='containers.list'?[]:['container']),...FIELDS[cmd]];
   const required=['cmd',...(cmd==='containers.list'?[]:['container'])];
-  for(const key of ['tabId','url','text','probe']) if(FIELDS[cmd].includes(key)) required.push(key);
+  for(const key of ['tabId','url','text','probe','effort','key','x','y','inspectionId']) if(FIELDS[cmd].includes(key)) required.push(key);
   if(['tabs.click','tabs.type'].includes(cmd)) required.push('selector');
   const schema={type:'object',additionalProperties:false,properties:{cmd:{const:cmd},...Object.fromEntries(keys.map(k=>[k,properties[k]]))},required};
   if(cmd==='tabs.eval') schema.allOf=[{if:{properties:{probe:{const:'elements'}}},then:{required:['selector']}}];
