@@ -2,6 +2,8 @@
 
 ## Status and release gates
 
+**Historical production procedure — not an active handoff.** The branch and Compose path below describe the original production design. Current acceptance work is limited to repository documentation and the separate isolated scope in [RELEASE-ACCEPTANCE.md](RELEASE-ACCEPTANCE.md). The signed 0.1.3 and unsigned 0.1.4 evidence and every outstanding criterion are recorded in [VERIFICATION.md](VERIFICATION.md). No signing, deployment, production mutation or driver connection is authorized while the gates remain closed. Do not follow the executable steps below under the current scope.
+
 This guide is an executable handoff for the deployment agent. It is not a
 claim that an image has been built or that the production acceptance checks
 have passed. The acceptance record must contain live evidence for every gate

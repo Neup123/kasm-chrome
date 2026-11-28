@@ -1,6 +1,6 @@
 # Kasm Firefox container driver
 
-## Scope and acceptance
+## Scope and acceptance (original production design)
 
 Build one persistent Manifest V2 extension, one internal HTTP/WebSocket driver,
 one custom Firefox image, and one Docker Compose application. Preserve the
@@ -76,11 +76,11 @@ signing-only secrets and never enter runtime images or the extension.
 6. Read live Coolify configuration, verify access and exact existing volume name,
    snapshot rollback metadata, build image, deploy via API, run all live gates.
 
-## Build status
+## Build status — isolated release 0.1.3 (2026-11-27)
 
-Source is prepared on `feat/firefox-agent-driver`. Signing and deployed
-acceptance remain separate gates. Private deployment snapshots and environment
-identifiers belong in the operational record, not this repository.
+The original design and delivery sequence above are historical; they do not authorize actions on the production stack. Signed 0.1.3 source/package verification, the isolated signed Firefox fixture and all 73 automated tests passed. The isolated integration branch is `test/release-0.1.2-coolify-acceptance` (historical branch name). The acceptance documentation is under review in draft PR #12 against that branch alone. See [Release acceptance evidence](RELEASE-ACCEPTANCE-EVIDENCE.md) and [test traceability](RELEASE-TEST-TRACEABILITY.md). The source-defined separate isolated profile is not a change to the original production profile.
+
+The authenticated isolated driver gate is closed; the eight deployed acceptance criteria and actual ChatGPT control tests remain NOT RUN. Signed Release restart is now proven on a disposable CI fixture in [draft PR #15](https://github.com/Neup123/kasm-chrome/pull/15) ([signed Release restart fixture job 140511960304](https://github.com/Neup123/kasm-chrome/actions/runs/46000898359/job/140511960304)); deployed restart/rollback are not established by either Release or ESR fixture tests. Do not retry the channel, request credentials, merge or deploy. Private snapshots, credentials and real records do not belong in repository evidence.
 
 ## Evidence boundaries
 
@@ -88,3 +88,17 @@ Local tests cover API auth, WebSocket protocol, timeouts, reconnect logic,
 container dispatch, DOM operations and packaging. They cannot prove Firefox
 Release signature acceptance, Kasm first boot, production ChatGPT behavior,
 Traefik/Authelia settings, live volume persistence or rollback.
+
+## Disposable profile recovery follow-up (2026-11-27)
+
+[signed backup/restore fixture job 140520386269](https://github.com/Neup123/kasm-chrome/actions/runs/46003376739/job/140520386269) passed in [draft PR #15](https://github.com/Neup123/kasm-chrome/pull/15) at tested commit `48182d3a5799cc94f508207838a8ec484fb0c9fd`. The stopped synthetic profile was archived from a read-only volume, checksum verified, restored to a separate empty volume, and opened in a newly created Firefox Release 160.0.1 container using the same image. Both named identities and independent cookie/localStorage markers survived without reseeding; signed extension 0.1.3 remained active (signedState 2). The original disposable volume was retained during the test. This proves same-image synthetic backup recovery only, not a deployed backup/restore, image-version rollback, real profile preservation, live TLS/proxy or real ChatGPT controls. The deployed acceptance criterion remains NOT RUN and the authenticated channel remains closed.
+
+## Combined effort candidate — repository-only milestone (2026-11-27)
+
+The separate fresh-composer and five-tick unsigned drafts #16 and #17 each passed 79 tests. The combined unsigned review candidate in [draft #18](https://github.com/Neup123/kasm-chrome/pull/18) passed 91/91 tests, including six joint regressions. None has a matching signed package; all three have the same provisional 0.1.4 manifest but distinct source trees. See [PR #16 evidence](https://github.com/Neup123/kasm-chrome/blob/21e645ba399937c92380c454e459e330a571c58b/docs/FRESH-COMPOSER-EFFORT-EVIDENCE.md), [PR #17 evidence](https://github.com/Neup123/kasm-chrome/blob/0175db13d0f98837e2b49b78e548db046679c376/docs/FIVE-TICK-EFFORT-EVIDENCE.md), and [PR #18 evidence](https://github.com/Neup123/kasm-chrome/blob/436cbd8b3dc16aa3b1b1791cec8e78992a549e91/docs/COMBINED-EFFORT-EVIDENCE.md). [five-tick final CI](https://github.com/Neup123/kasm-chrome/actions/runs/46043162623/job/140655723185) and [combined final CI](https://github.com/Neup123/kasm-chrome/actions/runs/46059206124/job/140709069811) passed. The combined candidate is the review unit containing both corrections; this is not a decision to merge or promote it. The individual drafts remain unchanged. No signed-runtime, actual ChatGPT or deployed acceptance evidence transfers from 0.1.3 or between differing extension trees. See [verification](VERIFICATION.md#candidate-014--outstanding-acceptance-register-2026-11-27). Signing and the live gate remain closed.
+
+## Generic-trigger candidate — repository-only milestone (2026-11-28 UTC)
+
+The later combined generic-trigger candidate in [draft #19](https://github.com/Neup123/kasm-chrome/pull/19) passes 100/100 tests and has independently verified unsigned package provenance. It adds an explicit current-level fallback when the generic trigger has a unique associated named slider with a supported value; actual UI metadata remains unverified. [PR #19 generic-effort evidence](https://github.com/Neup123/kasm-chrome/blob/63d3fbc3f4f5462f70162502533dc719d889da7d/docs/GENERIC-EFFORT-EVIDENCE.md) records the red/green early-abort regression and independent archive verification; [final candidate CI](https://github.com/Neup123/kasm-chrome/actions/runs/46072542679/job/140752639001) and [unsigned artifact 15233278554](https://github.com/Neup123/kasm-chrome/actions/runs/46072542679/artifacts/15233278554) correspond to exact tested head `a7ef3f687f1e8e8788345e6340f77ef935a3ca73`. This is the latest combined review candidate, not an instruction to merge or promote it. The previous #18 receipt remains source-specific. The original generic-trigger tests use constructed three-tick layouts; a subsequent test-only follow-up closes the constructed five-tick combination gap. Neither establishes live metadata. No default or unsupported value is inferred. No signing, runtime verification, deployment or live access is authorized; the eight deployed criteria remain NOT RUN.
+
+PR #19 subsequently passed 108/108 tests, including eight named generic-trigger/five-tick joint tests (eleven fixture executions). The extension source tree is unchanged. See [joint synthetic evidence](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/docs/GENERIC-EFFORT-EVIDENCE.md#combined-generic-trigger-and-five-tick-synthetic-acceptance-2026-11-28-utc) and [joint fixture CI](https://github.com/Neup123/kasm-chrome/actions/runs/46090067012/job/140808667617). No additional production code change was required. The exact tested commit is `b24b738299ed98ab01d2bcfc02a082127583ed30`; signing and live acceptance remain untouched.
