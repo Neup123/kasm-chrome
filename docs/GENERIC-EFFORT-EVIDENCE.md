@@ -50,3 +50,22 @@ Downloaded [artifact 15233278554](https://github.com/Neup123/kasm-chrome/actions
 Computed Git blob SHA-1 over each actual payload's Git blob header and bytes: LICENSE `fb698beea6cd2d6dc5001c794325cde723428230`, background.js `b9031b035e77e1f933d529967b386226b3622ee6`, content.js `50638e3cf506947d5aad4a8539d3d2f85fdeadae`, core.js `3a03491644edfb512ff1b3abc4cac6d3a5cdcd4a`, manifest.json `bac18e5a82a93f3319149947ba00f8d57c015320`, protocol.js `d149897d904ce57eb9f7cedc1b6ebe429de319d1`, transport.js `041c5698c039e30d062206308aa7d588c4ee76d5`. Every calculated hash equals its immutable repository blob. Archive hashes are specific to these builds, not a reproducible ZIP timestamp claim.
 
 **Closed:** independent unsigned-package provenance of #19. The earlier CI-only receipt is historical for a different build of the same tree. This proves neither signature trust nor installation, live generic or five-tick identification, actual High readback or deployed acceptance. Signing and runtime gates remain closed; no execution against a live driver, signing, merge or deployment occurred.
+
+## Combined generic-trigger and five-tick synthetic acceptance (2026-11-28 UTC)
+
+The previous evidence established generic current-level fallback with a constructed three-tick slider and five-tick geometry separately. The additional test-only commit `b24b738299ed98ab01d2bcfc02a082127583ed30` parameterizes the existing generic fixture's label row, records pointerdown/up coordinates, and adds eight named joint regression tests (eleven fixture executions). No production source, protocol, permissions, manifest, driver, signing or workflow changes relative to `63d3fbc3f4f5462f70162502533dc719d889da7d`: all blobs other than tests/extension-content.test.js were compared and are identical. The prior independent unsigned archive receipt remains applicable to the unchanged extension source tree `9b7ad80f81dadc2891545e9a7b0dfc72894f3cd8`, not to a newly built ZIP's bytes.
+
+[Completed CI 46090067012, job 140808667617](https://github.com/Neup123/kasm-chrome/actions/runs/46090067012/job/140808667617) on the exact test commit: 108/108 tests passed, zero failures or skips; zero extension lint errors/warnings; API docs, Compose source controls and unsigned package verification passed. Job log independently reviewed. All eight added cases passed on the first implementation run, so no additional runtime fix was needed.
+
+| Joint synthetic case | Verified outcome |
+| --- | --- |
+| Generic trigger; five-tick named slider; nearer partial track | PASS — Medium x=140 to High x=200 on the associated full track, no other release; exact readback and repeat High idempotence |
+| Reverse drag | PASS — High x=200 to Low x=80 |
+| Missing current value, Minimal, or Extra High | PASS — EFFORT_CURRENT_UNKNOWN in all three fixtures, no drag |
+| Partial-only associated track | PASS — EFFORT_TRACK_NOT_FOUND, no drag |
+| Unrelated full-width track instead of partial associated slider | PASS — EFFORT_GEOMETRY_UNVERIFIED, no drag on either track |
+| Unsupported interleaved tick | PASS — EFFORT_GEOMETRY_UNVERIFIED, no drag |
+| Final Extra High or closed popup with unchanged generic trigger | PASS — EFFORT_NOT_APPLIED in both fixtures, no fabricated verification |
+| Duplicate associated sliders | PASS — EFFORT_CURRENT_UNKNOWN, no drag |
+
+**Closed:** the additional synthetic combination gap for these explicit association, value and geometry fixtures. **Unproven:** actual ChatGPT markup, availability of the association/value metadata, actual level selection/readback, signed installation, runtime and deployed acceptance. The five-tick fixtures are constructed, not observed live; unsupported values remain excluded. No signing, runtime verification, live driver connection, deployment or merge occurred.
