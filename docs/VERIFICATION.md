@@ -49,7 +49,7 @@ The six joint tests exercise two sibling-toolbar layouts with a complete five-ti
 
 | Outstanding gate | Current disposition | Missing evidence |
 | --- | --- | --- |
-| Candidate source and unsigned package | PASS, repository/CI and independent archive-byte scope for #16, #17 and #18 | All three source-specific archive receipts recorded; no claim of signature trust |
+| Candidate source and unsigned package | PASS, repository/CI and independent archive-byte scope for #16, #17, #18 and #19 | All four source-specific archive receipts recorded; no claim of signature trust |
 | Protected signing and release identity | BLOCKED / NOT RUN for 0.1.4 | Source-matching signed artifact, artifact hash and version, protected signing receipt and verified package identity |
 | Signed candidate Firefox runtime | NOT RUN for 0.1.4 | Stock Release policy installation, active signed version, ready bridge, internal fixture behavior, restart and restore results for the changed source; 0.1.3 results are historical comparison only |
 | Fresh-conversation effort trigger and five-tick layout | NOT RUN live | Independently observed actual composer, unique associated trigger, complete label row/track, current label, and exact outcome/error; synthetic layouts are not live markup |
@@ -71,6 +71,19 @@ The previous CI-only gap in this register is now closed. Downloaded the two exac
 | #18 `436cbd8b3dc16aa3b1b1791cec8e78992a549e91` | [15227822107](https://github.com/Neup123/kasm-chrome/actions/runs/46059206124/artifacts/15227822107) | `cbdb54c42daa18daabc7b2a7a871dec242f283ba66c0fb1001dd5217f8267c34` | `164ccc40613581f9dd2c2facc18886e1f1f4c5c484d08ae07a2ea857f7dc9252` | 7/7 blobs match; unsigned |
 
 Full per-file receipts: [#17](https://github.com/Neup123/kasm-chrome/blob/612939017089170a645bd242e2c49d8b70daa2d5/docs/FIVE-TICK-EFFORT-EVIDENCE.md) and [#18](https://github.com/Neup123/kasm-chrome/blob/90ab79836bd41799f7c79c24082cbf265796f377/docs/COMBINED-EFFORT-EVIDENCE.md). Each outer archive contains exactly one XPI; each XPI contains exactly seven expected files, no duplicate entries or signature files. Both manifests identify version 0.1.4 and extension ID `kasm-agent@chabad.gr`; content.js blob differs as expected between candidates. The earlier #16 archive receipt remains source-specific. These are byte-level provenance checks, not cryptographic signature acceptance, installed runtime or live UI evidence. All three unsigned candidate archive documentation gaps are closed. No remaining distinct offline documentation/evidence task is identified in the current register; signing and live acceptance remain closed. The earlier CI-only statements describe the state before this follow-up.
+
+
+### Generic-trigger candidate: source and independent archive receipt (2026-11-28 UTC)
+
+[Draft #19](https://github.com/Neup123/kasm-chrome/pull/19) preserves the combined #18 corrections and adds a bounded explicit current-level fallback for a genuinely generic Thinking effort trigger. The original source early abort is reproduced in the red CI (100 total, 93 passed, 7 failed; two new rejection cases already passed). [final candidate CI](https://github.com/Neup123/kasm-chrome/actions/runs/46072542679/job/140752639001) completed at exact head `a7ef3f687f1e8e8788345e6340f77ef935a3ca73`: 100/100 passing, no failure/skip, zero lint errors/warnings, unsigned package source equality. The candidate extension tree `9b7ad80f81dadc2891545e9a7b0dfc72894f3cd8` differs from the earlier three trees. The immutable manifest blob is still `bac18e5a82a93f3319149947ba00f8d57c015320`; the version is provisional 0.1.4, not a unique release identifier. The signed 0.1.3 XPI/metadata and driver/protocol identities remain unchanged.
+
+| Exact artifact | Outer SHA-256 | Inner XPI SHA-256 | Independent result |
+| --- | --- | --- | --- |
+| [unsigned artifact 15233278554](https://github.com/Neup123/kasm-chrome/actions/runs/46072542679/artifacts/15233278554), 22,678 bytes | `85e46438660d64a182b978b71fffe58f922a8732e13b5412c37e99b8cd02d3bf` | `605bedf4817ffc41fdb7375bc16b2d3316249a8b5f17e9d224a195b933115b13` | CRC and exact inventory pass; 7/7 Git blobs match; no signature entries |
+
+The archive was actually downloaded and checked locally; both SHA-256 hashes match the final job log, outer digest matches GitHub metadata, and the complete seven-file payload matches the immutable tree. See [PR #19 generic-effort evidence](https://github.com/Neup123/kasm-chrome/blob/63d3fbc3f4f5462f70162502533dc719d889da7d/docs/GENERIC-EFFORT-EVIDENCE.md) for per-file receipts. The prior CI-only receipt is historical for a different build of the same tree. #19 is the latest combined review candidate, not a signed or accepted release. Earlier PRs remain independent and unchanged.
+
+**Proven:** the generic trigger fallback can identify a current supported value from an explicitly associated named slider in the constructed three-tick fixtures, and rejects absent, unsupported, ambiguous and unrelated evidence. The 91 prior combined regression tests also pass. **Unproven:** actual fresh-conversation markup/association/current-value metadata, generic fallback in a five-tick fixture or live five-tick layout, actual High mutation/readback, signed installation, runtime and deployed acceptance. If no explicit supported level is available, the fallback deliberately fails closed. All four candidates now have source-specific unsigned archive receipts. Signing and live gates are unchanged; no operational action is implied.
 
 ## Historical record: release 0.1.0 (2026-11-22)
 
