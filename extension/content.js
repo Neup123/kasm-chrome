@@ -185,10 +185,42 @@
       fail(code, detail);
     }
     const effortLabel = button => {
-      const text = normalized(textOf(button) + " " + (button.getAttribute("aria-label") || ""));
-      const levels = protocol.EFFORTS.filter(level => new RegExp("\\b" + level + "\\b", "i").test(text));
-      return levels.length === 1 ? levels[0] : null;
+      // A word match would mistake "Extra High" for "High". Accept only
+      // complete supported labels (with an optional explicit effort prefix).
+      const labels = [textOf(button), button.getAttribute("aria-label") || ""]
+        .map(normalized).filter(label => label && !/^(?:thinking )?effort$/i.test(label));
+      const levels = labels.map(label => {
+        const value = label.replace(/^(?:thinking )?effort(?:\s*:\s*|\s+)/i, "");
+        return protocol.EFFORTS.find(level => level.toLowerCase() === value.toLowerCase());
+      });
+      return levels.length && levels.every(level => level && level === levels[0]) ? levels[0] : null;
     };
+    // Only a genuinely generic trigger permits the associated-popup fallback.
+    // A conflicting or unsupported explicit label is not an unknown default.
+    const genericEffortLabel = button => {
+      const labels = [textOf(button), button.getAttribute("aria-label") || ""].map(normalized).filter(Boolean);
+      return labels.length > 0 && labels.every(label => /^(?:thinking )?effort$/i.test(label));
+    };
+    function controlledEffortId(trigger) {
+      const id = normalized(trigger.getAttribute("aria-controls") || "");
+      return id && !/\s/.test(id) ? id : null;
+    }
+    function associatedEffortPopup(trigger, id) {
+      if (!trigger.isConnected || controlledEffortId(trigger) !== id) return null;
+      const owners = Array.from(doc.querySelectorAll("[id]")).filter(el => el.id === id);
+      if (owners.length !== 1 || !visible(owners[0])) return null;
+      const popup = effortPopup();
+      return popup && (owners[0] === popup || owners[0].contains(popup)) ? popup : null;
+    }
+    function explicitSliderLevel(popup) {
+      const sliders = matches(popup, '[role="slider"],input[type="range"]');
+      if (sliders.length !== 1) return null;
+      const slider = sliders[0];
+      if (!/^(?:thinking )?effort$/i.test(normalized(slider.getAttribute("aria-label") || ""))) return null;
+      const value = normalized(slider.getAttribute("aria-valuetext") || "");
+      const level = protocol.EFFORTS.find(item => item.toLowerCase() === value.toLowerCase());
+      return level ? {slider,level} : null;
+    }
     function effortButton() {
       // ChatGPT can expose its composer solely through an accessible label:
       // neither prompt-textarea nor a composer test ID is guaranteed.
@@ -198,8 +230,29 @@
       if (anchors.length !== 1) fail("EFFORT_COMPOSER_AMBIGUOUS", "Multiple visible ChatGPT composer anchors were found.");
       const composer = anchors[0];
       const explicitRoot = composer.closest('[data-testid="composer"],form');
-      function candidates(root) {
+      const boundary = 'html,body,main,article,nav,aside,header,footer,[role=main],[role=dialog],[role=log],[role=feed],[data-message-author-role]';
+      const editorSelector = 'textarea,[contenteditable="true"],[contenteditable="plaintext-only"],[contenteditable=""]';
+      function assertSingleEditor(root) {
+        const otherEditors = matches(root,editorSelector).filter(el=>el!==composer && !composer.contains(el) && !el.contains(composer));
+        if (otherEditors.length) fail("EFFORT_COMPOSER_AMBIGUOUS", "The local composer wrapper contains another visible editor.");
+      }
+      function candidates(root, siblingOnly=false) {
         const buttons = matches(root, "button,[role=button]");
+        if (siblingOnly) {
+          // A fresh composer may render its toolbar outside its explicit editor
+          // form/test-ID wrapper. Outside that wrapper require an explicit
+          // effort accessible label, not a bare Low/Medium/High text match.
+          return buttons.filter(button => {
+            if (explicitRoot.contains(button) || !/^(?:thinking )?effort(?:\s*:\s*(?:Low|Medium|High))?$/i.test(normalized(button.getAttribute("aria-label") || ""))) return false;
+            if (button.form && !button.form.contains(composer)) return false;
+            // Do not select controls belonging to another form, composer,
+            // dialog, conversation landmark or editable subtree.
+            for (let node=button; node && node!==root; node=node.parentElement) {
+              if (node.matches(boundary+',form,[data-testid="composer"],'+editorSelector)) return false;
+            }
+            return true;
+          });
+        }
         const named = buttons.filter(button => {
           const name = normalized((button.getAttribute("aria-label") || "") + " " + (button.getAttribute("data-testid") || "") + " " + textOf(button));
           return /effort|thinking/i.test(name) && (effortLabel(button) || /effort/i.test(name));
@@ -209,17 +262,20 @@
         return [...new Set([...named,...exact])];
       }
       if (explicitRoot) {
-        return unique(candidates(explicitRoot), "EFFORT_PICKER_NOT_UNIQUE", "No unique thinking-effort control was found in the composer.");
+        assertSingleEditor(explicitRoot);
+        const found = candidates(explicitRoot);
+        if (found.length) return unique(found, "EFFORT_PICKER_NOT_UNIQUE", "No unique thinking-effort control was found in the composer.");
+        // Only an empty explicit scope permits the stricter sibling fallback.
+        // An ambiguous explicit scope must fail without widening the search.
       }
-      // For an unlabeled wrapper, walk only the local composer ancestry.
-      // Never search an entire conversation, main region, or document for
-      // a button labelled High/Medium/Low.
+      // Walk at most six local composer ancestors, even with an explicit root.
+      // Never search an entire conversation, main region, or document.
       let root = composer.parentElement;
       for (let depth = 0; root && depth < 6; depth++, root = root.parentElement) {
-        if (root.matches('html,body,main,article,nav,aside,header,footer,[role=main],[role=dialog],[role=log],[role=feed],[data-message-author-role]')) break;
-        const otherEditors = matches(root,'textarea,[contenteditable="true"],[contenteditable="plaintext-only"],[contenteditable=""]').filter(el=>el!==composer && !composer.contains(el) && !el.contains(composer));
-        if (otherEditors.length) fail("EFFORT_COMPOSER_AMBIGUOUS", "The local composer wrapper contains another visible editor.");
-        const found = candidates(root);
+        if (root.matches(boundary)) break;
+        if (explicitRoot && (root===explicitRoot || explicitRoot.contains(root))) continue;
+        assertSingleEditor(root);
+        const found = candidates(root,Boolean(explicitRoot));
         if (found.length) return unique(found, "EFFORT_PICKER_NOT_UNIQUE", "Multiple thinking-effort controls were found in the local composer wrapper.");
       }
       fail("EFFORT_PICKER_NOT_UNIQUE", "No unique thinking-effort control was found near the accessible composer anchor.");
@@ -374,38 +430,80 @@
 
     function effortGeometry(root, current, desired) {
       const labels = protocol.EFFORTS.map(level => unique(Array.from(root.querySelectorAll("*")).filter(el =>
-        !el.children.length && normalized(textOf(el)) === level && visible(el)), "EFFORT_TICKS_NOT_UNIQUE", "The three effort ticks were not uniquely identified."));
-      const rects = labels.map(el => el.getBoundingClientRect());
+        !el.children.length && normalized(textOf(el)) === level && visible(el)), "EFFORT_TICKS_NOT_UNIQUE", "Supported effort ticks were not uniquely identified."));
+      // The visible labels must establish one complete row. Extra labels are
+      // geometry only: the protocol still permits exactly Low/Medium/High.
+      const row = labels[0].parentElement;
+      if (!row || labels.some(el => el.parentElement !== row))
+        fail("EFFORT_GEOMETRY_UNVERIFIED", "Supported effort ticks do not share one identifiable label row.");
+      const rowLabels = Array.from(row.children).filter(el => normalized(textOf(el)));
+      if (![3,5].includes(rowLabels.length) || rowLabels.some(el => el.children.length || !visible(el)))
+        fail("EFFORT_GEOMETRY_UNVERIFIED", "The complete effort row must have three or five visible leaf labels.");
+      const names = rowLabels.map(el => normalized(textOf(el)));
+      if (new Set(names.map(name => name.toLowerCase())).size !== names.length)
+        fail("EFFORT_TICKS_NOT_UNIQUE", "The complete effort row contains duplicate labels.");
+      const supported = labels.map(el => rowLabels.indexOf(el));
+      if (supported[0] < 0 || !supported.every((index,i) => index === supported[0]+i))
+        fail("EFFORT_GEOMETRY_UNVERIFIED", "Supported effort ticks are not contiguous and ordered; no unsupported tick may be crossed.");
+      const rects = rowLabels.map(el => el.getBoundingClientRect());
       const xs = rects.map(r => r.left + r.width / 2);
-      if (!(xs[0] < xs[1] && xs[1] < xs[2])) fail("EFFORT_GEOMETRY_UNVERIFIED", "The three effort ticks do not form the expected horizontal sequence.");
+      const ys = rects.map(r => r.top + r.height / 2);
+      if (rects.some(r => !(r.width>0 && r.height>0)) || xs.some((x,i) => i>0 && !(xs[i-1]<x)) ||
+          Math.max(...ys)-Math.min(...ys)>12 || rects.some((r,i) => i>0 && r.left<rects[i-1].right))
+        fail("EFFORT_GEOMETRY_UNVERIFIED", "The complete effort ticks do not form one ordered horizontal row.");
       const labelTop = Math.min(...rects.map(r => r.top));
-      // Track may have no slider role. Use a visible narrow horizontal track
-      // spanning the three labels, immediately above their row; refuse ties.
+      const first=xs[0],last=xs[xs.length-1];
+      // Require the track to span the entire row, not just the supported
+      // subset. Keep the existing narrow-track geometry and hit-test path.
       const candidates = matches(root, 'div,span,input[type="range"],[role="slider"]').map(el => ({el,r:el.getBoundingClientRect()}))
-        .filter(({r}) => r.width >= (xs[2] - xs[0]) * .8 && r.height > 0 && r.height <= 32 &&
-          r.left <= xs[0] + 12 && r.right >= xs[2] - 12 && r.bottom <= labelTop + 3 && labelTop - r.bottom <= 48);
+        .filter(({r}) => r.width >= (last-first)*.8 && r.height > 0 && r.height <= 32 &&
+          r.left <= first+12 && r.right >= last-12 && r.bottom <= labelTop+3 && labelTop-r.bottom <= 48);
       candidates.sort((a,b) => (labelTop-a.r.bottom)-(labelTop-b.r.bottom) || a.r.height-b.r.height);
-      if (!candidates.length) fail("EFFORT_TRACK_NOT_FOUND", "No visible horizontal effort track matches the tick geometry.");
+      if (!candidates.length) fail("EFFORT_TRACK_NOT_FOUND", "No visible horizontal effort track spans the complete tick row.");
       const {el, r} = candidates[0];
       if (candidates.length > 1 && candidates[1].r.bottom === r.bottom && candidates[1].r.height === r.height &&
         !el.contains(candidates[1].el) && !candidates[1].el.contains(el))
         fail("EFFORT_TRACK_AMBIGUOUS", "Multiple unrelated tracks match the effort ticks.");
-      const index = level => protocol.EFFORTS.indexOf(level);
-      const tickX = level => Math.max(r.left + 1, Math.min(r.right - 1, xs[index(level)]));
+      const tickX = level => Math.max(r.left+1, Math.min(r.right-1, xs[supported[protocol.EFFORTS.indexOf(level)]]));
       return {el, y:r.top+r.height/2, from:tickX(current), to:tickX(desired)};
     }
     async function setEffort(request, message) {
       chatOnly();
       const trigger = effortButton();
-      const previous = effortLabel(trigger);
+      let previous = effortLabel(trigger);
+      let popup, associatedId, initialSlider;
+      if (!previous) {
+        const unknown = () => fail("EFFORT_CURRENT_UNKNOWN", "No exact supported current effort was identified in the composer or its associated slider.");
+        if (!genericEffortLabel(trigger)) unknown();
+        associatedId = controlledEffortId(trigger);
+        if (!associatedId) unknown();
+        // Never reuse an unrelated already-open picker or open a second one.
+        if (effortPopup()) {
+          popup = associatedEffortPopup(trigger,associatedId);
+          if (!popup) unknown();
+        } else {
+          const lookup = () => associatedEffortPopup(trigger,associatedId);
+          clickElementAt(trigger,message,false,lookup);
+          popup = await waitFor(message,lookup,"EFFORT_PICKER_NOT_OPEN","The explicitly associated effort popup did not open.");
+        }
+        guard(message);
+        if (effortButton() !== trigger || !genericEffortLabel(trigger)) unknown();
+        const observed = explicitSliderLevel(popup);
+        if (!observed) unknown();
+        previous = observed.level;
+        initialSlider = observed.slider;
+      }
       if (previous === request.effort) return {effort:previous, changed:false, verified:true};
-      if (!previous) fail("EFFORT_CURRENT_UNKNOWN", "The composer does not identify its current Low, Medium, or High effort.");
-      let popup = effortPopup();
       if (!popup) {
-        clickElementAt(trigger,message,false,effortPopup);
-        popup = await waitFor(message, effortPopup, "EFFORT_PICKER_NOT_OPEN", "The effort popup did not open.");
+        popup = effortPopup();
+        if (!popup) {
+          clickElementAt(trigger,message,false,effortPopup);
+          popup = await waitFor(message, effortPopup, "EFFORT_PICKER_NOT_OPEN", "The effort popup did not open.");
+        }
       }
       const {el,y,from,to} = effortGeometry(popup, previous, request.effort);
+      if (initialSlider && !(el === initialSlider || initialSlider.contains(el)))
+        fail("EFFORT_GEOMETRY_UNVERIFIED","The identified effort track does not belong to the slider reporting the current value.");
       // Dispatch to the actual hit-tested child (usually the draggable thumb),
       // then to the same target for pointermove/up; no browser-wide input.
       const target = inspectedTarget(el,from,y);
@@ -433,8 +531,17 @@
       pointer(target,"pointerup",lastX,y,false);
       if (compatible && target.isConnected) mouse(target,"mouseup",lastX,y,false);
       await waitFor(message, () => {
-        try { return effortLabel(effortButton()) === request.effort; } catch (_) { return false; }
-      }, "EFFORT_NOT_APPLIED", "The composer label did not confirm the requested effort; inspect before retrying.");
+        try {
+          const currentTrigger = effortButton();
+          const currentLabel = effortLabel(currentTrigger);
+          if (currentLabel) return currentLabel === request.effort;
+          if (!initialSlider || currentTrigger !== trigger || !genericEffortLabel(currentTrigger)) return false;
+          const currentPopup = associatedEffortPopup(currentTrigger,associatedId);
+          if (currentPopup !== popup) return false;
+          const observed = explicitSliderLevel(currentPopup);
+          return Boolean(observed && observed.slider === initialSlider && observed.level === request.effort);
+        } catch (_) { return false; }
+      }, "EFFORT_NOT_APPLIED", "Neither the composer nor its verified associated slider confirmed the requested effort; inspect before retrying.");
       return {effort:request.effort, previous, changed:true, verified:true};
     }
     function approval(expected=null) {
