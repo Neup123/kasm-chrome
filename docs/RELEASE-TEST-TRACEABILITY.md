@@ -46,3 +46,81 @@ All positive synthetic results, negative origin checks, source package verificat
 ## Disposable profile recovery follow-up (2026-11-27)
 
 [signed backup/restore fixture job 140520386269](https://github.com/Neup123/kasm-chrome/actions/runs/46003376739/job/140520386269) passed in [draft PR #15](https://github.com/Neup123/kasm-chrome/pull/15) at tested commit `48182d3a5799cc94f508207838a8ec484fb0c9fd`. The stopped synthetic profile was archived from a read-only volume, checksum verified, restored to a separate empty volume, and opened in a newly created Firefox Release 160.0.1 container using the same image. Both named identities and independent cookie/localStorage markers survived without reseeding; signed extension 0.1.3 remained active (signedState 2). The original disposable volume was retained during the test. This proves same-image synthetic backup recovery only, not a deployed backup/restore, image-version rollback, real profile preservation, live TLS/proxy or real ChatGPT controls. The deployed acceptance criterion remains NOT RUN and the authenticated channel remains closed.
+
+## Unsigned 0.1.4 combined candidate traceability (2026-11-28 UTC)
+
+The 0.1.3 inventory above is historical and remains unchanged. This follow-up independently reads the six immutable source test files at [PR #19 head `fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d`](https://github.com/Neup123/kasm-chrome/commit/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d) and the actual completed [final candidate job 140808996419](https://github.com/Neup123/kasm-chrome/actions/runs/46090173037/job/140808996419) log. Extracted the literal named `test('…', ...)` declarations and successful Node test-reporter lines; compared their exact names as sets, checked counts and uniqueness, and compared the names with the original 0.1.3 baseline. All 108 source names match all 108 successful CI names one-to-one. Zero missing, extra, duplicate, failed or skipped tests. All 73 baseline test names remain present; 35 additional declarations are in extension-content.test.js. This checks execution-name traceability, not exhaustive code coverage or correctness of every assertion.
+
+| Source file | Baseline declarations | Candidate declarations | Matched successful CI names |
+| --- | ---: | ---: | ---: |
+| [artifact.test.js](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/tests/artifact.test.js) | 2 | 2 | 2 |
+| [driver.test.js](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/tests/driver.test.js) | 18 | 18 | 18 |
+| [extension-content.test.js](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/tests/extension-content.test.js) | 24 | 59 | 59 |
+| [extension-core.test.js](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/tests/extension-core.test.js) | 11 | 11 | 11 |
+| [extension-transport.test.js](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/tests/extension-transport.test.js) | 12 | 12 | 12 |
+| [protocol.test.js](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/tests/protocol.test.js) | 6 | 6 | 6 |
+| Total | 73 | 108 | 108 |
+
+The additional declarations, with exact source links and successful log names, are below. The five groups correspond to the earlier draft evidence. The latest eight tests execute eleven constructed fixtures; each named declaration is counted once.
+
+### Fresh-composer sibling lookup (#16) — 6/6
+
+| Exact CI test name | Immutable source declaration | Result |
+| --- | --- | --- |
+| fresh composer with an editor form and sibling named effort control verifies High | [L343](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/tests/extension-content.test.js#L343) | PASS |
+| fresh explicit composer test ID with sibling named effort control verifies High | [L353](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/tests/extension-content.test.js#L353) | PASS |
+| fresh explicit composer fallback rejects a bare level label | [L361](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/tests/extension-content.test.js#L361) | PASS |
+| fresh explicit composer fallback rejects multiple named effort controls | [L368](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/tests/extension-content.test.js#L368) | PASS |
+| fresh explicit composer fallback never crosses a main landmark or another editor | [L375](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/tests/extension-content.test.js#L375) | PASS |
+| fresh explicit composer fallback rejects controls in another form or dialog | [L386](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/tests/extension-content.test.js#L386) | PASS |
+
+### Five-tick geometry and exact labels (#17) — 6/6
+
+| Exact CI test name | Immutable source declaration | Result |
+| --- | --- | --- |
+| five-tick effort identifies the full track and exact High tick instead of the nearer partial track | [L424](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/tests/extension-content.test.js#L424) | PASS |
+| five-tick effort rejects a partial track when no track spans the whole row | [L434](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/tests/extension-content.test.js#L434) | PASS |
+| Extra High is not verified as High and must not trigger a drag | [L441](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/tests/extension-content.test.js#L441) | PASS |
+| five-tick effort rejects an unsupported level interleaved between supported ticks | [L448](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/tests/extension-content.test.js#L448) | PASS |
+| five-tick effort rejects duplicate extra tick labels | [L455](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/tests/extension-content.test.js#L455) | PASS |
+| five-tick effort does not treat Extra High readback as successful High | [L462](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/tests/extension-content.test.js#L462) | PASS |
+
+### Combined fresh-composer and five-tick (#18) — 6/6
+
+| Exact CI test name | Immutable source declaration | Result |
+| --- | --- | --- |
+| combined fresh form sibling and five ticks choose the full track and verify High exactly once | [L473](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/tests/extension-content.test.js#L473) | PASS |
+| combined fresh test-ID sibling and five ticks choose the full track | [L482](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/tests/extension-content.test.js#L482) | PASS |
+| combined fresh sibling with only partial five-tick track fails without drag | [L491](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/tests/extension-content.test.js#L491) | PASS |
+| combined fresh sibling with Extra High current label fails without opening picker | [L498](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/tests/extension-content.test.js#L498) | PASS |
+| combined fresh sibling five-tick drag rejects Extra High final label | [L505](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/tests/extension-content.test.js#L505) | PASS |
+| combined fresh sibling with duplicate named controls rejects before picker opens | [L512](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/tests/extension-content.test.js#L512) | PASS |
+
+### Generic current-level fallback (#19) — 9/9
+
+| Exact CI test name | Immutable source declaration | Result |
+| --- | --- | --- |
+| generic Thinking effort identifies current level from associated slider and verifies exact final readback | [L551](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/tests/extension-content.test.js#L551) | PASS |
+| generic Thinking effort already High is verified without dragging | [L559](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/tests/extension-content.test.js#L559) | PASS |
+| generic Thinking effort with missing slider value fails without drag | [L566](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/tests/extension-content.test.js#L566) | PASS |
+| generic Thinking effort rejects unsupported slider value without drag | [L573](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/tests/extension-content.test.js#L573) | PASS |
+| generic Thinking effort rejects ambiguous associated sliders without drag | [L580](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/tests/extension-content.test.js#L580) | PASS |
+| generic Thinking effort does not use a preexisting unassociated popup | [L587](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/tests/extension-content.test.js#L587) | PASS |
+| generic Thinking effort refuses false Extra High slider readback | [L594](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/tests/extension-content.test.js#L594) | PASS |
+| generic Thinking effort cannot verify a closed popup with unchanged generic trigger | [L601](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/tests/extension-content.test.js#L601) | PASS |
+| explicit unsupported current label cannot use generic fallback | [L608](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/tests/extension-content.test.js#L608) | PASS |
+
+### Generic fallback and five-tick follow-up (#19) — 8/8
+
+| Exact CI test name | Immutable source declaration | Result |
+| --- | --- | --- |
+| generic five-tick associated slider verifies exact supported endpoints despite a nearer partial track | [L617](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/tests/extension-content.test.js#L617) | PASS |
+| generic five-tick associated slider uses supported Low endpoint on reverse drag | [L627](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/tests/extension-content.test.js#L627) | PASS |
+| generic five-tick missing or unsupported current value refuses drag | [L635](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/tests/extension-content.test.js#L635) | PASS |
+| generic five-tick partial-only associated slider refuses drag | [L644](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/tests/extension-content.test.js#L644) | PASS |
+| generic five-tick unrelated full-width track cannot substitute for associated slider | [L651](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/tests/extension-content.test.js#L651) | PASS |
+| generic five-tick interleaved unsupported tick refuses drag | [L658](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/tests/extension-content.test.js#L658) | PASS |
+| generic five-tick final unsupported value or closed popup cannot verify High | [L665](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/tests/extension-content.test.js#L665) | PASS |
+| generic five-tick duplicate associated sliders refuse drag | [L674](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/tests/extension-content.test.js#L674) | PASS |
+
+**Scope:** the final CI log reports 108/108, zero failures/skips, zero extension lint errors/warnings and unsigned package source equality. The source extension tree remains `9b7ad80f81dadc2891545e9a7b0dfc72894f3cd8`. As a consistency check in this documentation turn, locally rechecked the previously downloaded #17, #18 and #19 archives using Python zipfile/hashlib: outer and inner SHA-256, CRC, exact entry inventories, manifest version/ID and 7/7 Git blob hashes all match their recorded receipts. This was a recheck of those retained builds, not a download of the newest CI artifact. No new runtime tests were run. The 108 named tests do not establish actual ChatGPT markup, availability of its current-level metadata, actual High readback, signed installation or any of the eight deployed acceptance criteria. No signing, runtime verification, live connection, deployment or merge is authorized by this record.

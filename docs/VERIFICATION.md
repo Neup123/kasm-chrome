@@ -89,6 +89,10 @@ The archive was actually downloaded and checked locally; both SHA-256 hashes mat
 
 PR #19 subsequently passed 108/108 tests, including eight named generic-trigger/five-tick joint tests (eleven fixture executions). The extension source tree is unchanged. See [joint synthetic evidence](https://github.com/Neup123/kasm-chrome/blob/fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d/docs/GENERIC-EFFORT-EVIDENCE.md#combined-generic-trigger-and-five-tick-synthetic-acceptance-2026-11-28-utc) and [joint fixture CI](https://github.com/Neup123/kasm-chrome/actions/runs/46090067012/job/140808667617). The exact tested commit `b24b738299ed98ab01d2bcfc02a082127583ed30` differs from the previous candidate head only in tests/extension-content.test.js; all other 68 Git blobs were compared and are identical. CI logs report 108/108 passing, zero failures/skips and zero lint errors/warnings, unsigned package source equality and no signature entries. The eight joint tests cover supported forward/reverse endpoints, idempotent readback, missing/unsupported values, incomplete or unrelated geometry, interleaved labels, ambiguous sliders and failed final readback. The existing independent archive receipt relates to the unchanged extension tree, not the new build ZIP. Actual UI metadata, live selection/readback, signed installation, runtime and deployed acceptance remain unproven. No signing or runtime action was performed.
 
+### Final candidate test-name traceability closure
+
+[108-test source-to-log traceability](RELEASE-TEST-TRACEABILITY.md#unsigned-014-combined-candidate-traceability-2026-11-28-utc) independently reconciles all six source test files with [final candidate job 140808996419](https://github.com/Neup123/kasm-chrome/actions/runs/46090173037/job/140808996419) at exact PR #19 head `fe7ea04ffcac34540157bbe2d4dcd91b5a276b2d`: 108/108 unique matches, all 73 baseline names retained, 35 added tests, no unmatched or duplicate names. This is a repository-only traceability receipt; actual live and signing gates remain unchanged.
+
 ## Historical record: release 0.1.0 (2026-11-22)
 
 **Source and local behavior are tested. The extension is unsigned. No production
