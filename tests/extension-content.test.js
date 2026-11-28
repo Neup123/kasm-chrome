@@ -519,20 +519,25 @@ test('combined fresh sibling with duplicate named controls rejects before picker
   } finally {h.close();}
 });
 
-function genericEffortHarness({current='Medium',final='High',associated=true,duplicate=false,close=false,preopen=false,triggerText='Thinking effort'}={}) {
+function genericEffortHarness({current='Medium',final='High',associated=true,duplicate=false,close=false,preopen=false,triggerText='Thinking effort',labels=['Low','Medium','High'],partial=false,partialOnly=false,foreignTrack=false}={}) {
   const h=harness('<main><section><form><div contenteditable="true" aria-label="Ask ChatGPT"></div></form><div><button type="button" aria-label="Thinking effort">Thinking effort</button></div></section></main>');
   const button=h.document.querySelector('button');button.textContent=triggerText;
   const place=layout(h);place(button,10,100,100,20);
   if(associated)button.setAttribute('aria-controls','effort-popup');
-  let opens=0;const releases=[];
+  let opens=0;const releases=[],downs=[],otherReleases=[];
   function open(){
     opens++;
     const popup=h.document.createElement('section');popup.id='effort-popup';popup.dataset.state='open';
-    popup.innerHTML='<div id="track" role="slider" aria-label="Thinking effort"></div><div><span>Low</span><span>Medium</span><span>High</span></div>';
+    popup.innerHTML='<div id="track" role="slider" aria-label="Thinking effort"></div><div id="ticks"></div>';
     h.document.body.append(popup);
-    const track=popup.querySelector('#track');place(track,10,10,200,8);
+    const track=popup.querySelector('#track');
+    const gap=labels.length===5?60:90;
+    const width=labels.length===5?260:200;
+    place(track,partialOnly?70:10,10,partialOnly?140:width,8);
     if(current!==null)track.setAttribute('aria-valuetext',current);
-    popup.querySelectorAll('span').forEach((el,i)=>place(el,10+i*90,30,20,15));
+    labels.forEach((label,i)=>{const el=h.document.createElement('span');el.textContent=label;popup.querySelector('#ticks').append(el);place(el,10+i*gap,40-(labels.length===3?10:0),20,15);});
+    if(partial||foreignTrack){const other=h.document.createElement('div');other.id='foreign-track';popup.append(other);place(other,foreignTrack?10:70,25,foreignTrack?width:140,8);other.addEventListener('pointerup',e=>otherReleases.push(e.clientX));}
+    track.addEventListener('pointerdown',e=>downs.push(e.clientX));
     if(duplicate){const other=track.cloneNode();other.id='other-track';popup.append(other);place(other,10,18,200,8);}
     track.addEventListener('pointerup',e=>{
       releases.push(e.clientX);
@@ -541,7 +546,7 @@ function genericEffortHarness({current='Medium',final='High',associated=true,dup
     });
   }
   button.onclick=open;if(preopen)open();
-  return {...h,opens:()=>opens,releases};
+  return {...h,opens:()=>opens,releases,downs,otherReleases};
 }
 test('generic Thinking effort identifies current level from associated slider and verifies exact final readback',async()=>{
   const h=genericEffortHarness();
@@ -605,5 +610,71 @@ test('explicit unsupported current label cannot use generic fallback',async()=>{
   try{
     assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error?.code,'EFFORT_CURRENT_UNKNOWN');
     assert.equal(h.opens(),0);assert.deepEqual(h.releases,[]);
+  }finally{h.close();}
+});
+
+const genericFiveLabels=['Minimal','Low','Medium','High','Extra High'];
+test('generic five-tick associated slider verifies exact supported endpoints despite a nearer partial track',async()=>{
+  const h=genericEffortHarness({labels:genericFiveLabels,partial:true});
+  try{
+    const reply=await h.command('tabs.setEffort',{effort:'High'});
+    assert.deepEqual(reply.result,{effort:'High',previous:'Medium',changed:true,verified:true},JSON.stringify(reply));
+    assert.deepEqual(h.downs,[140]);assert.deepEqual(h.releases,[200]);assert.deepEqual(h.otherReleases,[]);
+    assert.deepEqual((await h.command('tabs.setEffort',{effort:'High'})).result,{effort:'High',changed:false,verified:true});
+    assert.equal(h.opens(),1);assert.deepEqual(h.releases,[200]);
+  }finally{h.close();}
+});
+test('generic five-tick associated slider uses supported Low endpoint on reverse drag',async()=>{
+  const h=genericEffortHarness({labels:genericFiveLabels,current:'High',final:'Low'});
+  try{
+    const reply=await h.command('tabs.setEffort',{effort:'Low'});
+    assert.deepEqual(reply.result,{effort:'Low',previous:'High',changed:true,verified:true},JSON.stringify(reply));
+    assert.deepEqual(h.downs,[200]);assert.deepEqual(h.releases,[80]);
+  }finally{h.close();}
+});
+test('generic five-tick missing or unsupported current value refuses drag',async()=>{
+  for(const current of [null,'Minimal','Extra High']){
+    const h=genericEffortHarness({labels:genericFiveLabels,current});
+    try{
+      assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error?.code,'EFFORT_CURRENT_UNKNOWN');
+      assert.equal(h.opens(),1);assert.deepEqual(h.downs,[]);assert.deepEqual(h.releases,[]);
+    }finally{h.close();}
+  }
+});
+test('generic five-tick partial-only associated slider refuses drag',async()=>{
+  const h=genericEffortHarness({labels:genericFiveLabels,partialOnly:true});
+  try{
+    assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error?.code,'EFFORT_TRACK_NOT_FOUND');
+    assert.deepEqual(h.downs,[]);assert.deepEqual(h.releases,[]);
+  }finally{h.close();}
+});
+test('generic five-tick unrelated full-width track cannot substitute for associated slider',async()=>{
+  const h=genericEffortHarness({labels:genericFiveLabels,partialOnly:true,foreignTrack:true});
+  try{
+    assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error?.code,'EFFORT_GEOMETRY_UNVERIFIED');
+    assert.deepEqual(h.downs,[]);assert.deepEqual(h.releases,[]);assert.deepEqual(h.otherReleases,[]);
+  }finally{h.close();}
+});
+test('generic five-tick interleaved unsupported tick refuses drag',async()=>{
+  const h=genericEffortHarness({labels:['Low','Medium','Intermediate','High','Extra High']});
+  try{
+    assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error?.code,'EFFORT_GEOMETRY_UNVERIFIED');
+    assert.deepEqual(h.downs,[]);assert.deepEqual(h.releases,[]);
+  }finally{h.close();}
+});
+test('generic five-tick final unsupported value or closed popup cannot verify High',async()=>{
+  for(const opts of [{final:'Extra High'},{close:true}]){
+    const h=genericEffortHarness({labels:genericFiveLabels,...opts});
+    try{
+      assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error?.code,'EFFORT_NOT_APPLIED');
+      assert.deepEqual(h.downs,[140]);assert.deepEqual(h.releases,[200]);
+    }finally{h.close();}
+  }
+});
+test('generic five-tick duplicate associated sliders refuse drag',async()=>{
+  const h=genericEffortHarness({labels:genericFiveLabels,duplicate:true});
+  try{
+    assert.equal((await h.command('tabs.setEffort',{effort:'High'})).error?.code,'EFFORT_CURRENT_UNKNOWN');
+    assert.deepEqual(h.downs,[]);assert.deepEqual(h.releases,[]);
   }finally{h.close();}
 });
